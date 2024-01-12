@@ -1,0 +1,4 @@
+#define ASSET_DIR @ASSET_DIR@
+#define SHADER_DIR @SHADER_DIR@ 
+#define MODEL_DIR @MODEL_DIR@
+#define IMAGE_DIR @IMAGE_DIR@
