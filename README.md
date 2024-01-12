@@ -1,8 +1,8 @@
-# lightBx
+# lightBx (Lighting basics)
 
 Basic lighting system implemented in Vulkan.
 
-Roughly based on lighting section in [learnopeng](https://learnopengl.com/Lighting).
+Roughly based on lighting section in [learnopengl](https://learnopengl.com/Lighting).
 
 
 
