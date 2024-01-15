@@ -1,6 +1,7 @@
 #include "vk_app.h"
 #include "vk_log.h"
 #include "vk_init.h"
+#include "settings.h"
 #include "VkBootstrap.h"
 
 void VkApp::init()
@@ -18,6 +19,8 @@ void VkApp::init()
 	initRenderPasses();
 
 	initFrameBuffers();
+
+	initPipelines();
 
 	_init = true;
 
@@ -37,7 +40,7 @@ void VkApp::run()
 void VkApp::draw()
 {
 	//Get current frame data
-	auto frame = getFrame();
+	auto& frame = getFrame();
 
 	VK_CHECK(vkWaitForFences(_device, 1, &frame._renderDoneFence, true, 1000000000));
 	VK_CHECK(vkResetFences(_device, 1, &frame._renderDoneFence));
@@ -76,6 +79,9 @@ void VkApp::draw()
 	pass_begin_info.pClearValues = &clearValue;
 
 	vkCmdBeginRenderPass(cmd, &pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
+
+	vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _pipeline);
+	vkCmdDraw(cmd, 3, 1, 0, 0);
 
 	vkCmdEndRenderPass(cmd);
 
@@ -318,7 +324,72 @@ void VkApp::initSync()
 
 void VkApp::initPipelines()
 {
+	VkShaderModule vertexShader{};
+	VkShaderModule fragShader{};
 
+	std::string vertexShaderPath = SHADER_DIR + std::string{"mesh.vert.spv"};
+	std::string fragShaderPath = SHADER_DIR + std::string{"mesh.frag.spv"};
+
+
+	if (!vk_io::loadShaderModule(_device, vertexShaderPath.c_str(), &vertexShader)) {
+		std::cerr << "Couldn't load vertex shader: " << vertexShaderPath << std::endl;
+	}
+	else {
+		std::cout << "Loaded vertex shader: " << vertexShaderPath << std::endl;
+	}
+
+	if (!vk_io::loadShaderModule(_device, fragShaderPath.c_str(), &fragShader)) {
+		std::cerr << "Couldn't load fragment shader: " << fragShaderPath << std::endl;
+	}
+	else {
+		std::cout << "Loaded fragment shader: " << fragShaderPath << std::endl;
+	}
+
+	vk_init::PipelineBuilder pipeline_builder{};
+
+
+	pipeline_builder._shaderStages.emplace_back(
+		vk_init::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_VERTEX_BIT, vertexShader)
+	);
+
+	pipeline_builder._shaderStages.emplace_back(
+		vk_init::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT, fragShader)
+	);
+
+	VkPipelineLayoutCreateInfo pipeline_layout_info = vk_init::pipelineLayoutCreateInfo();
+
+	VK_CHECK(vkCreatePipelineLayout(_device, &pipeline_layout_info, nullptr, &_pipelineLayout));
+
+	pipeline_builder._vertexInputInfo = vk_init::pipelineVertexInputStateCreateInfo();
+
+	pipeline_builder._inputAssembly = vk_init::pipelineInputAssemblyStateCreateInfo(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+
+	pipeline_builder._viewport.x = 0.0f;
+	pipeline_builder._viewport.y = 0.0f;
+	pipeline_builder._viewport.width = (float)_windowSize.width;
+	pipeline_builder._viewport.height = (float)_windowSize.height;
+	pipeline_builder._viewport.minDepth = 0.0f;
+	pipeline_builder._viewport.maxDepth = 1.0f;
+
+	pipeline_builder._scissor.offset = { 0, 0 };
+	pipeline_builder._scissor.extent = _windowSize;
+
+	pipeline_builder._rasterizer = vk_init::pipelineRasterizationStateCreateInfo(VK_POLYGON_MODE_FILL);
+
+	//we don't use multisampling, so just run the default one
+	pipeline_builder._multisampling = vk_init::pipelineMultisampleStateCreateInfo();
+
+	//a single blend attachment with no blending and writing to RGBA
+	pipeline_builder._colorBlendAttachment = vk_init::pipelineColorBlendAttachmentState();
+
+
+	pipeline_builder._layout = _pipelineLayout;
+
+	_pipeline = pipeline_builder.build(_device, _renderPass);
+
+
+	vkDestroyShaderModule(_device, vertexShader, nullptr);
+	vkDestroyShaderModule(_device, fragShader, nullptr);
 }
 
 
@@ -378,7 +449,8 @@ void VkApp::destroySync()
 
 void VkApp::destroyPipelines()
 {
-
+	vkDestroyPipelineLayout(_device, _pipelineLayout, nullptr);
+	vkDestroyPipeline(_device, _pipeline, nullptr);
 }
 
 RenderFrame& VkApp::getFrame()

@@ -2,6 +2,8 @@
 
 #include "vk_types.h"
 
+#include <vector>
+
 namespace vk_init {
 
 	/* Commands */
@@ -15,9 +17,45 @@ namespace vk_init {
 
 	VkSemaphoreCreateInfo semaphoreCreateInfo(VkSemaphoreCreateFlags flags = 0);
 
-	/* Desciptors */
-
 	/* Pipelines */
+
+	VkPipelineShaderStageCreateInfo pipelineShaderStageCreateInfo(VkShaderStageFlagBits stage, VkShaderModule shaderModule);
+
+	VkPipelineVertexInputStateCreateInfo pipelineVertexInputStateCreateInfo();
+
+	VkPipelineInputAssemblyStateCreateInfo pipelineInputAssemblyStateCreateInfo(VkPrimitiveTopology topology);
+
+	VkPipelineRasterizationStateCreateInfo pipelineRasterizationStateCreateInfo(VkPolygonMode polygonMode);
+
+	VkPipelineColorBlendAttachmentState pipelineColorBlendAttachmentState();
+
+	VkPipelineMultisampleStateCreateInfo pipelineMultisampleStateCreateInfo();
+
+	VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo();
+	
+	class PipelineBuilder {
+	public:
+		VkPipeline build(VkDevice device, VkRenderPass renderPass);
+
+		//Vertex stages
+		std::vector<VkPipelineShaderStageCreateInfo> _shaderStages{};
+		VkPipelineVertexInputStateCreateInfo _vertexInputInfo{};
+		VkPipelineInputAssemblyStateCreateInfo _inputAssembly{};
+
+		VkViewport _viewport{};
+		VkRect2D _scissor{};
+
+		//Fragment stages
+		VkPipelineRasterizationStateCreateInfo _rasterizer{};
+		VkPipelineColorBlendAttachmentState _colorBlendAttachment{};
+		VkPipelineMultisampleStateCreateInfo _multisampling{};
+
+		//Layout
+		VkPipelineLayout _layout{};
+	};
+
+
+	/* Desciptors */
 
 	/* Buffers */
 

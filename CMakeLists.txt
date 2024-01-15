@@ -56,7 +56,6 @@ endif()
 file(GLOB src
     "src/core/*.cpp"
     "src/math/*.cpp"
-    "src/io/*.cpp"
     "external/tiny_obj_loader/tiny_obj_loader.cpp"
     "external/stb_img/stb_image.cpp"
 )
@@ -87,8 +86,8 @@ message("Using Image directory: ${IMAGE_DIR}")
 
 
 configure_file(
-    "${CMAKE_CURRENT_LIST_DIR}/src/io/settings.h.in"
-    "${CMAKE_CURRENT_LIST_DIR}/src/io/settings.h"
+    "${CMAKE_CURRENT_LIST_DIR}/src/core/settings.h.in"
+    "${CMAKE_CURRENT_LIST_DIR}/src/core/settings.h"
 )
 
 # Add source to this project's executable.

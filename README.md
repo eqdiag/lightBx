@@ -29,14 +29,18 @@ make
 ## TODO
 - [x] Setup
 	- [x] Flashing screen w changing color
-- [ ] Hardcoded triangle
-	- [ ] Pipeline abstraction
-	- [ ] Shaders done
+- [x] Hardcoded triangle
+	- [x] Pipeline abstraction
+	- [x] Shaders done
 - [ ] Test w 3d triangle (via vertex buffers)
+	- [ ] Vertex buffers 
+	- [ ] Obj loading
 	- [ ] Depth buffer
-- [ ] Mesh loading
+	- [ ] Test w cubes
 - [ ] Fly Cam
 - [ ] Imgui
+- [ ] Textures on cubes
+	- [ ] texture loading
 - [ ] Colors
 - [ ] Basic lighting
 - [ ] Materials

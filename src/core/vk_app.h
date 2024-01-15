@@ -1,6 +1,7 @@
 #pragma once
 
 #include "vk_types.h"
+#include "vk_io.h"
 
 #include <vector>
 
@@ -103,7 +104,8 @@ private:
 	std::vector<VkFramebuffer> _frameBuffers;
 
 	/* Pipelines */
-
+	VkPipelineLayout _pipelineLayout;
+	VkPipeline _pipeline;
 
 	/* Resources (Buffers/Images) */
 
