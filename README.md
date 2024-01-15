@@ -26,6 +26,22 @@ cmake ..
 make
 ```
 
+## TODO
+- [x] Setup
+	- [x] Flashing screen w changing color
+- [ ] Hardcoded triangle
+	- [ ] Pipeline abstraction
+	- [ ] Shaders done
+- [ ] Test w 3d triangle (via vertex buffers)
+	- [ ] Depth buffer
+- [ ] Mesh loading
+- [ ] Fly Cam
+- [ ] Imgui
+- [ ] Colors
+- [ ] Basic lighting
+- [ ] Materials
+- [ ] Light casters
+- [ ] Multiple lights
 
 
 ## Keyboard Controls

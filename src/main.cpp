@@ -1,15 +1,15 @@
-#include "core/vk_engine.h"
+#include "core/vk_app.h"
 
 
 int main(){
 
-    VkEngine engine;
+	VkApp app{};
 
-    engine.init();
+	app.init();
 
-    engine.run();
-    
-    engine.cleanup();
+	app.run();
 
-    return 0;
+	app.cleanup();
+
+	return 0;
 }
