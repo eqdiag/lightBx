@@ -46,16 +46,10 @@ else()
 endif()
 
 
-#file(
-#    GLOB imgui_src 
-#    "external/imgui/*.cpp" 
-#    "external/imgui/backends/imgui_impl_glfw.cpp"
-#    "external/imgui/backends/imgui_impl_opengl3.cpp"
-#)
-
 file(GLOB src
     "src/core/*.cpp"
     "src/math/*.cpp"
+    "src/primitives/*.cpp"
     "external/tiny_obj_loader/tiny_obj_loader.cpp"
     "external/stb_img/stb_image.cpp"
 )
