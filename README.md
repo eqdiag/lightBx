@@ -36,14 +36,13 @@ make
 	- [x] Uniform buffer for proj,view
 	- [x] Add camera layer on top to actually compute view matrix
 - [x] Vertex buffers 
-- [ ] Storage buffer for model matrices of objects
-- [ ] Depth buffer
+- [x] Storage buffer for model matrices of objects
+- [x] Depth buffer
 - [ ] Index buffer (squares)
 - [ ] Index buffer (cubes
+- [ ] Static buffer loading (via staging buffer)
 - [ ] Textures on cubes
 	- [ ] texture loading
-- [ ] Static vertex data loading (via staging buffer)
-
 - [ ] Imgui
 
 - [ ] Colors
@@ -54,11 +53,14 @@ make
 
 
 ## Keyboard Controls
-  * `Placeholder` TEXT
+  * `W` Translate camera forward
+  * `A` Translate camera left
+  * `S` Translate camera back
+  * `D` Translate camera right
 
 
 ## Mouse Controls
-  * `Placeholder` TEXT
+  * `Click + Drag` Rotate camera forward direction
 
 # Demo
 ## Placeholder

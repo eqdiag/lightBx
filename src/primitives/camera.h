@@ -8,7 +8,7 @@ namespace vk_primitives{
     namespace camera {
 
         struct GPUCameraData {
-            math::Mat4 view_proj;
+            math::Mat4 matrix;
         };
 
         static const double CAMERA_SHIFT = 0.001;

@@ -127,6 +127,23 @@ VkPipelineColorBlendAttachmentState vk_init::pipelineColorBlendAttachmentState()
 	return state;
 }
 
+VkPipelineDepthStencilStateCreateInfo vk_init::pipelineDepthStencilStateCreateInfo(bool depthTest, bool depthWrite, VkCompareOp compareOp)
+{
+	VkPipelineDepthStencilStateCreateInfo create_info{};
+	create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+	create_info.pNext = nullptr;
+
+	create_info.depthTestEnable = depthTest ? VK_TRUE : VK_FALSE;
+	create_info.depthWriteEnable = depthWrite ? VK_TRUE : VK_FALSE;
+	create_info.depthCompareOp = depthTest ? compareOp : VK_COMPARE_OP_ALWAYS;
+	create_info.depthBoundsTestEnable = VK_FALSE;
+	create_info.minDepthBounds = 0.0f; // Optional
+	create_info.maxDepthBounds = 1.0f; // Optional
+	create_info.stencilTestEnable = VK_FALSE;
+
+	return create_info;
+}
+
 VkPipelineMultisampleStateCreateInfo vk_init::pipelineMultisampleStateCreateInfo()
 {
 	VkPipelineMultisampleStateCreateInfo create_info{};
@@ -157,6 +174,44 @@ VkPipelineLayoutCreateInfo vk_init::pipelineLayoutCreateInfo()
 	/* Layouts */
 	create_info.setLayoutCount = 0;
 	create_info.pSetLayouts = nullptr;
+
+	return create_info;
+}
+
+VkImageCreateInfo vk_init::imageCreateInfo(VkFormat format, VkImageUsageFlags usageFlags, VkExtent3D extent)
+{
+	VkImageCreateInfo create_info{};
+	create_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+	create_info.pNext = nullptr;
+
+	create_info.imageType = VK_IMAGE_TYPE_2D;
+
+	create_info.format = format;
+	create_info.extent = extent;
+
+	create_info.mipLevels = 1;
+	create_info.arrayLayers = 1;
+	create_info.samples = VK_SAMPLE_COUNT_1_BIT;
+	create_info.tiling = VK_IMAGE_TILING_OPTIMAL;
+	create_info.usage = usageFlags;
+
+	return create_info;
+}
+
+VkImageViewCreateInfo vk_init::imageViewCreateInfo(VkFormat format, VkImage image, VkImageAspectFlags flags)
+{
+	VkImageViewCreateInfo create_info{};
+	create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+	create_info.pNext = nullptr;
+
+	create_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
+	create_info.image = image;
+	create_info.format = format;
+	create_info.subresourceRange.baseMipLevel = 0;
+	create_info.subresourceRange.levelCount = 1;
+	create_info.subresourceRange.baseArrayLayer = 0;
+	create_info.subresourceRange.layerCount = 1;
+	create_info.subresourceRange.aspectMask = flags;
 
 	return create_info;
 }
@@ -196,6 +251,7 @@ VkPipeline vk_init::PipelineBuilder::build(VkDevice device, VkRenderPass renderP
 	create_info.pRasterizationState = &_rasterizer;
 	create_info.pMultisampleState = &_multisampling;
 	create_info.pColorBlendState = &color_blending;
+	create_info.pDepthStencilState = &_depthStencil;
 	create_info.layout = _layout;
 	create_info.renderPass = renderPass;
 	create_info.subpass = 0;

@@ -11,6 +11,7 @@
 #include <vector>
 
 constexpr uint32_t NUM_FRAMES = 2;
+constexpr uint32_t NUM_OBJECTS = 10;
 
 struct RenderFrame {
 	/* Commands */
@@ -113,6 +114,11 @@ private:
 	std::vector<VkImage> _swapchainImages;
 	std::vector<VkImageView> _swapchainImageViews;
 
+	/* Depth buffer */
+	VkFormat _depthFormat;
+	vk_types::AllocatedImage _depthImage;
+	VkImageView _depthImageView;
+
 	/* Device */
 	VkPhysicalDevice _gpu;
 	VkPhysicalDeviceProperties _gpuProperties;
@@ -147,13 +153,18 @@ private:
 	/* Buffers */
 	vk_types::AllocatedBuffer _vertexBuffer;
 	vk_types::AllocatedBuffer _cameraBuffer;
+	vk_types::AllocatedBuffer _modelBuffer;
 
 	/* Desciptors */
 	VkDescriptorPool _descriptorPool;
 
-	//Dynamic descriptor changed on frame scope
+	//Dynamic descriptor set changed on frame scope
 	VkDescriptorSetLayout _frameDescriptorLayout;
 	VkDescriptorSet _frameDescriptorSet;
+
+	//Dynamic descriptor set changed on object scope
+	VkDescriptorSetLayout _objectDescriptorLayout;
+	VkDescriptorSet _objectDescriptorSet;
 
 };
 

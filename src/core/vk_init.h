@@ -29,6 +29,8 @@ namespace vk_init {
 
 	VkPipelineColorBlendAttachmentState pipelineColorBlendAttachmentState();
 
+	VkPipelineDepthStencilStateCreateInfo pipelineDepthStencilStateCreateInfo(bool depthTest, bool depthWrite, VkCompareOp compareOp);
+
 	VkPipelineMultisampleStateCreateInfo pipelineMultisampleStateCreateInfo();
 
 	VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo();
@@ -48,6 +50,7 @@ namespace vk_init {
 		//Fragment stages
 		VkPipelineRasterizationStateCreateInfo _rasterizer{};
 		VkPipelineColorBlendAttachmentState _colorBlendAttachment{};
+		VkPipelineDepthStencilStateCreateInfo _depthStencil;
 		VkPipelineMultisampleStateCreateInfo _multisampling{};
 
 		//Layout
@@ -60,5 +63,9 @@ namespace vk_init {
 	/* Buffers */
 
 	/* Images */
+
+	VkImageCreateInfo imageCreateInfo(VkFormat format, VkImageUsageFlags usageFlags, VkExtent3D extent);
+
+	VkImageViewCreateInfo imageViewCreateInfo(VkFormat format, VkImage image, VkImageAspectFlags flags);
 
 }
