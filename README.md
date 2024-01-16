@@ -43,6 +43,7 @@ make
 - [ ] Static buffer loading (via staging buffer)
 - [ ] Textures on cubes
 	- [ ] texture loading
+- [ ] Fix mac bug (framebuffer issue vs window size)
 - [ ] Imgui
 
 - [ ] Colors
