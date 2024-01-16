@@ -111,6 +111,7 @@ target_include_directories(
     PUBLIC external/tiny_obj_loader
     PUBLIC external/vma/include
     PUBLIC external/stb_img
+    PUBLIC src/math
     PUBLIC src
     PUBLIC ${Vulkan_INCLUDE_DIRS}
 )

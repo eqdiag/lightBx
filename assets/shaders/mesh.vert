@@ -1,21 +1,19 @@
 #version 450
 
-const vec3 positions[3] = vec3[3](
-	vec3(1.f,1.f, 0.0f),
-	vec3(-1.f,1.f, 0.0f),
-	vec3(0.f,-1.f, 0.0f)
-);
+//In
+layout(location = 0) in vec3 position;
+layout(location = 1) in vec3 color;
 
-const vec3 colors[3] = vec3[3](
-	vec3(1.f,0.f, 0.0f),
-	vec3(0.f,1.f, 0.0f),
-	vec3(0.f,0.f, 1.0f)
-);
-
+//Out
 layout(location = 0) out vec3 outColor;
+
+//Uniforms
+layout(set = 0,binding = 0) uniform CameraBuffer{
+	mat4 view_proj; //view_proj = proj * view
+} camera;
 
 void main()
 {
-	gl_Position = vec4(positions[gl_VertexIndex], 1.0f);
-	outColor = colors[gl_VertexIndex];
+	gl_Position = camera.view_proj * vec4(position,1.0);
+	outColor = color;
 }

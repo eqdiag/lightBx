@@ -1,8 +1,16 @@
 #include "vk_app.h"
 #include "vk_log.h"
 #include "vk_init.h"
+#include "vk_util.h"
 #include "settings.h"
 #include "VkBootstrap.h"
+
+#include "primitives/mesh.h"
+#include "primitives/camera.h"
+
+
+#define VMA_IMPLEMENTATION
+#include "vk_mem_alloc.h"
 
 void VkApp::init()
 {
@@ -20,7 +28,12 @@ void VkApp::init()
 
 	initFrameBuffers();
 
+	initBuffers();
+
+	initDescriptors();
+
 	initPipelines();
+
 
 	_init = true;
 
@@ -34,6 +47,18 @@ void VkApp::run()
 
 		draw();
 
+		if (glfwGetKey(_window, GLFW_KEY_A) == GLFW_PRESS) {
+			_mainCamera.translate(-0.01, 0.0, 0.0);
+		}else if (glfwGetKey(_window, GLFW_KEY_D) == GLFW_PRESS) {
+			_mainCamera.translate(0.01, 0.0, 0.0);
+		}else if (glfwGetKey(_window, GLFW_KEY_W) == GLFW_PRESS) {
+			_mainCamera.translate(0.0, 0.0, -0.01);
+		}else if (glfwGetKey(_window, GLFW_KEY_S) == GLFW_PRESS) {
+			_mainCamera.translate(0.0, 0.0, 0.01);
+		}
+
+
+
 	}
 }
 
@@ -41,9 +66,31 @@ void VkApp::draw()
 {
 	//Get current frame data
 	auto& frame = getFrame();
+	uint32_t frameIdx = _frameNum % NUM_FRAMES;
+
 
 	VK_CHECK(vkWaitForFences(_device, 1, &frame._renderDoneFence, true, 1000000000));
 	VK_CHECK(vkResetFences(_device, 1, &frame._renderDoneFence));
+
+	/* Update frame resources */
+
+	//Update camera info
+	math::Mat4 view = _mainCamera.getViewMatrix();
+	math::Mat4 proj = math::Mat4::perspectiveProjection(70.0 * (3.14 / 180.0), (float)_windowSize.width / (float)_windowSize.height, 0.1f, 200.0f);
+	proj[1][1] *= -1;
+	vk_primitives::camera::GPUCameraData gpu_data{};
+	gpu_data.view_proj = proj * view;
+
+	//Copy to gpu
+	uint32_t offsetSize = vk_util::padUniformBufferSize(_gpuProperties.limits.minUniformBufferOffsetAlignment, sizeof(vk_primitives::camera::GPUCameraData));
+	char* data;
+	vmaMapMemory(_allocator, _cameraBuffer._allocation, (void**)&data);
+
+	data += offsetSize * frameIdx;
+	memcpy(data, (void*)&gpu_data, offsetSize);
+
+	vmaUnmapMemory(_allocator, _cameraBuffer._allocation);
+
 
 	uint32_t nextImgIndex;
 	VK_CHECK(vkAcquireNextImageKHR(_device, _swapchain, 1000000000, frame._imgReadyFlag, VK_NULL_HANDLE, &nextImgIndex));
@@ -62,8 +109,8 @@ void VkApp::draw()
 	VK_CHECK(vkBeginCommandBuffer(cmd, &begin_info));
 
 	VkClearValue clearValue;
-	float flash = abs(sin(_frameNum / 120.0f));
-	clearValue.color = { {0,flash,0,1.0f} };
+	//float flash = abs(sin(_frameNum / 120.0f));
+	clearValue.color = { {0,0,0,1.0f} };
 
 	VkRenderPassBeginInfo pass_begin_info{};
 	pass_begin_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -81,6 +128,13 @@ void VkApp::draw()
 	vkCmdBeginRenderPass(cmd, &pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
 
 	vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _pipeline);
+
+	VkDeviceSize offset = 0;
+	vkCmdBindVertexBuffers(cmd, 0, 1, &_vertexBuffer._buffer, &offset);
+
+
+	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _pipelineLayout, 0, 1, &_frameDescriptorSet, 1, &offsetSize);
+
 	vkCmdDraw(cmd, 3, 1, 0, 0);
 
 	vkCmdEndRenderPass(cmd);
@@ -132,10 +186,13 @@ void VkApp::cleanup()
 			VK_CHECK(vkWaitForFences(_device, 1,&_frames[i]._renderDoneFence, true, 1000000000));
 		}
 
+		destroyPipelines();
+
+		destroyDescriptors();
+
+		destroyBuffers();
 
 		destroySync();
-
-		destroyPipelines();
 
 		destroyFrameBuffers();
 
@@ -160,6 +217,12 @@ void VkApp::initWindow()
 	glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
 	_window = glfwCreateWindow(_windowSize.width, _windowSize.height, "lightBx", nullptr, nullptr);
+
+	glfwSetCursorPosCallback(_window, _cursorMotionCallback);
+
+	glfwSetMouseButtonCallback(_window, _mouseButtonCallback);
+
+	glfwSetWindowUserPointer(_window, (void*)this);
 }
 
 void VkApp::initVulkan()
@@ -202,8 +265,18 @@ void VkApp::initVulkan()
 
 	_device = device.device;
 
+	_gpuProperties = device.physical_device.properties;
+
 	_graphicsFamilyQueueIndex = device.get_queue_index(vkb::QueueType::graphics).value();
 	_graphicsQueue = device.get_queue(vkb::QueueType::graphics).value();
+
+	//Create vma allocator
+
+	VmaAllocatorCreateInfo create_info{};
+	create_info.instance = _instance;
+	create_info.physicalDevice = _gpu;
+	create_info.device = _device;
+	VK_CHECK(vmaCreateAllocator(&create_info, &_allocator));
 }
 
 void VkApp::initSwapchain()
@@ -356,11 +429,30 @@ void VkApp::initPipelines()
 		vk_init::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT, fragShader)
 	);
 
+	/* Pipeline layout */
+
 	VkPipelineLayoutCreateInfo pipeline_layout_info = vk_init::pipelineLayoutCreateInfo();
+
+	pipeline_layout_info.setLayoutCount = 1;
+	pipeline_layout_info.pSetLayouts = &_frameDescriptorLayout;
 
 	VK_CHECK(vkCreatePipelineLayout(_device, &pipeline_layout_info, nullptr, &_pipelineLayout));
 
-	pipeline_builder._vertexInputInfo = vk_init::pipelineVertexInputStateCreateInfo();
+	/* Vertex input */
+
+	VkPipelineVertexInputStateCreateInfo vertex_input_info = vk_init::pipelineVertexInputStateCreateInfo();
+
+	auto description = vk_primitives::mesh::Vertex_F3_F3::getVertexInputDescription();
+
+	vertex_input_info.vertexBindingDescriptionCount = description._bindingDescriptions.size();
+	vertex_input_info.vertexAttributeDescriptionCount = description._attributeDescriptions.size();
+
+	vertex_input_info.pVertexBindingDescriptions = description._bindingDescriptions.data();
+	vertex_input_info.pVertexAttributeDescriptions = description._attributeDescriptions.data();
+
+	pipeline_builder._vertexInputInfo = vertex_input_info;
+
+	/* Input Assembly */
 
 	pipeline_builder._inputAssembly = vk_init::pipelineInputAssemblyStateCreateInfo(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
 
@@ -392,6 +484,108 @@ void VkApp::initPipelines()
 	vkDestroyShaderModule(_device, fragShader, nullptr);
 }
 
+void VkApp::initBuffers()
+{
+
+	/* Vertex buffers */
+	std::vector<vk_primitives::mesh::Vertex_F3_F3> vertices{
+		{ {1.0f,1.0f,0.0}, {1.0f,0.0f,0.0f} },
+		{ {-1.0f,1.0f,0.0}, {0.0f,1.0f,0.0f} },
+		{ {0.0f,-1.0f,0.0}, {0.0f,0.0f,1.0f} }
+	};
+
+	//Create vertex buffer
+	_vertexBuffer = vk_util::createBuffer(_allocator, vertices.size() * sizeof(vk_primitives::mesh::Vertex_F3_F3), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+	
+	//Copy data into buffer
+
+	void* data;
+	vmaMapMemory(_allocator, _vertexBuffer._allocation, &data);
+
+	memcpy(data, vertices.data(), vertices.size() * sizeof(vk_primitives::mesh::Vertex_F3_F3));
+
+	vmaUnmapMemory(_allocator, _vertexBuffer._allocation);
+
+	/* Uniform buffers */
+
+	//Viewproj matrix per frame
+	size_t camera_buffer_size = vk_util::padUniformBufferSize(_gpuProperties.limits.minUniformBufferOffsetAlignment, sizeof(vk_primitives::camera::GPUCameraData));
+	camera_buffer_size *= NUM_FRAMES;
+
+	_cameraBuffer = vk_util::createBuffer(_allocator, camera_buffer_size, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+}
+
+void VkApp::initDescriptors()
+{
+	/* Set 0 */
+
+	//Binding 0
+	VkDescriptorSetLayoutBinding camera_binding{};
+	camera_binding.binding = 0;
+	camera_binding.descriptorCount = 1;
+	camera_binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+	camera_binding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+
+	//Layout
+	VkDescriptorSetLayoutCreateInfo layout_info{};
+	layout_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+	layout_info.pNext = nullptr;
+	
+	layout_info.bindingCount = 1;
+	layout_info.flags = 0;
+	layout_info.pBindings = &camera_binding;
+
+	VK_CHECK(vkCreateDescriptorSetLayout(_device, &layout_info, nullptr, &_frameDescriptorLayout));
+
+	//Create descriptor pool
+
+	std::vector<VkDescriptorPoolSize> sizes = {
+		{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,10}
+	};
+
+	VkDescriptorPoolCreateInfo pool_info{};
+	pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+	pool_info.pNext = nullptr;
+	pool_info.maxSets = 10;
+	pool_info.poolSizeCount = (uint32_t)sizes.size();
+	pool_info.pPoolSizes = sizes.data();
+
+	VK_CHECK(vkCreateDescriptorPool(_device, &pool_info, nullptr, &_descriptorPool));
+
+
+	//Allocate descriptors from pool
+
+	VkDescriptorSetAllocateInfo alloc_info{};
+	alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+	alloc_info.pNext = nullptr;
+	alloc_info.descriptorPool = _descriptorPool;
+	alloc_info.descriptorSetCount = 1;
+	alloc_info.pSetLayouts = &_frameDescriptorLayout;
+
+	VK_CHECK(vkAllocateDescriptorSets(_device, &alloc_info, &_frameDescriptorSet));
+
+	//Write to descriptor set
+
+	//(Set 0,binding 0)
+	VkDescriptorBufferInfo buffer_info{};
+	buffer_info.buffer = _cameraBuffer._buffer;
+	buffer_info.offset = 0;
+	buffer_info.range = sizeof(vk_primitives::camera::GPUCameraData);
+
+	VkWriteDescriptorSet write{};
+	write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	write.pNext = nullptr;
+
+	write.dstBinding = 0;
+	write.dstSet = _frameDescriptorSet;
+
+	write.descriptorCount = 1;
+	write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+	write.pBufferInfo = &buffer_info;
+
+	vkUpdateDescriptorSets(_device, 1, &write, 0, nullptr);
+}
+
 
 void VkApp::destroyWindow()
 {
@@ -403,6 +597,8 @@ void VkApp::destroyWindow()
 
 void VkApp::destroyVulkan()
 {
+	vmaDestroyAllocator(_allocator);
+
 	vkDestroyDevice(_device, nullptr);
 	vkb::destroy_debug_utils_messenger(_instance, _debugMessenger, nullptr);
 	vkDestroyInstance(_instance, nullptr);
@@ -453,9 +649,59 @@ void VkApp::destroyPipelines()
 	vkDestroyPipeline(_device, _pipeline, nullptr);
 }
 
+void VkApp::destroyBuffers()
+{
+	vmaDestroyBuffer(_allocator, _vertexBuffer._buffer, _vertexBuffer._allocation);
+	vmaDestroyBuffer(_allocator, _cameraBuffer._buffer, _cameraBuffer._allocation);
+}
+
+void VkApp::destroyDescriptors()
+{
+	vkDestroyDescriptorPool(_device, _descriptorPool, nullptr);
+	vkDestroyDescriptorSetLayout(_device, _frameDescriptorLayout, nullptr);
+}
+
 RenderFrame& VkApp::getFrame()
 {
 	return _frames[_frameNum % NUM_FRAMES];
 }
 
+void _cursorMotionCallback(GLFWwindow* window, double xpos, double ypos)
+{
+	VkApp* app = static_cast<VkApp*>(glfwGetWindowUserPointer(window));
 
+	if (app->_mousePressed) {
+		if (!app->_mouseInit) {
+			app->_mouseX = xpos;
+			app->_mouseY = ypos;
+
+			app->_mouseInit = true;
+		}
+		else {
+			float dx = xpos - app->_mouseX;
+			float dy = app->_mouseY - ypos;
+			app->_mouseX = xpos;
+			app->_mouseY = ypos;
+
+			app->_mainCamera.rotateTheta(dx * -0.005);
+			app->_mainCamera.rotatePhi(-dy * 0.01);
+		}
+	}
+	else {
+		app->_mouseInit = false;
+	}
+}
+
+void _mouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
+{
+	VkApp* app = static_cast<VkApp*>(glfwGetWindowUserPointer(window));
+
+	if (button == GLFW_MOUSE_BUTTON_LEFT) {
+		if (action == GLFW_PRESS) {
+			app->_mousePressed = true;
+		}
+		else if (action == GLFW_RELEASE) {
+			app->_mousePressed = false;
+		}
+	}
+}

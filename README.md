@@ -32,15 +32,20 @@ make
 - [x] Hardcoded triangle
 	- [x] Pipeline abstraction
 	- [x] Shaders done
-- [ ] Test w 3d triangle (via vertex buffers)
-	- [ ] Vertex buffers 
-	- [ ] Obj loading
-	- [ ] Depth buffer
-	- [ ] Test w cubes
-- [ ] Fly Cam
-- [ ] Imgui
+- [x] Fly Cam
+	- [x] Uniform buffer for proj,view
+	- [x] Add camera layer on top to actually compute view matrix
+- [x] Vertex buffers 
+- [ ] Storage buffer for model matrices of objects
+- [ ] Depth buffer
+- [ ] Index buffer (squares)
+- [ ] Index buffer (cubes
 - [ ] Textures on cubes
 	- [ ] texture loading
+- [ ] Static vertex data loading (via staging buffer)
+
+- [ ] Imgui
+
 - [ ] Colors
 - [ ] Basic lighting
 - [ ] Materials

@@ -3,6 +3,11 @@
 #include "vk_types.h"
 #include "vk_io.h"
 
+#include "primitives/mesh.h"
+#include "primitives/camera.h"
+
+#include "vk_mem_alloc.h"
+
 #include <vector>
 
 constexpr uint32_t NUM_FRAMES = 2;
@@ -27,6 +32,17 @@ public:
 	void draw();
 	void cleanup();
 
+
+	/* Input state */
+	bool _mouseInit{ false };
+	bool _mousePressed{ false };
+	double _mouseX{};
+	double _mouseY{};
+
+	/* Camera */
+	vk_primitives::camera::FlyCamera _mainCamera{math::Vec3{0, 0, -4}};
+
+
 private:
 
 	/* INIT */
@@ -44,6 +60,10 @@ private:
 	void initFrameBuffers();
 
 	void initSync();
+
+	void initBuffers();
+
+	void initDescriptors();
 
 	void initPipelines();
 
@@ -63,6 +83,10 @@ private:
 	void destroyFrameBuffers();
 
 	void destroySync();
+
+	void destroyBuffers();
+
+	void destroyDescriptors();
 
 	void destroyPipelines();
 
@@ -91,7 +115,11 @@ private:
 
 	/* Device */
 	VkPhysicalDevice _gpu;
+	VkPhysicalDeviceProperties _gpuProperties;
 	VkDevice _device;
+
+	/* VMA Allocator */
+	VmaAllocator _allocator;
 
 	/* Queues */
 	uint32_t _graphicsFamilyQueueIndex;
@@ -116,7 +144,21 @@ private:
 
 	/* Sync */
 
-	/* Desciptors */
+	/* Buffers */
+	vk_types::AllocatedBuffer _vertexBuffer;
+	vk_types::AllocatedBuffer _cameraBuffer;
 
+	/* Desciptors */
+	VkDescriptorPool _descriptorPool;
+
+	//Dynamic descriptor changed on frame scope
+	VkDescriptorSetLayout _frameDescriptorLayout;
+	VkDescriptorSet _frameDescriptorSet;
 
 };
+
+/* INPUT HANDLING */
+
+void _cursorMotionCallback(GLFWwindow* window, double xpos, double ypos);
+
+void _mouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
