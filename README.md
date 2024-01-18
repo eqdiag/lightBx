@@ -38,16 +38,20 @@ make
 - [x] Vertex buffers 
 - [x] Storage buffer for model matrices of objects
 - [x] Depth buffer
-- [ ] Index buffer (squares)
-- [ ] Index buffer (cubes
-- [ ] Static buffer loading (via staging buffer)
-- [ ] Textures on cubes
-	- [ ] texture loading
-- [ ] Imgui
 
+# Thursday
+- [x] Static buffer loading (via staging buffer)
+- [x] Index buffer (squares)
+- [x] Index buffer (cubes)
+
+- [ ] Imgui
 - [ ] Colors
 - [ ] Basic lighting
+
+# Friday
 - [ ] Materials
+- [ ] Textures on cubes
+	- [ ] texture loading
 - [ ] Light casters
 - [ ] Multiple lights
 

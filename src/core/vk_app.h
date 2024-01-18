@@ -9,6 +9,7 @@
 #include "vk_mem_alloc.h"
 
 #include <vector>
+#include <functional>
 
 constexpr uint32_t NUM_FRAMES = 2;
 constexpr uint32_t NUM_OBJECTS = 10;
@@ -22,6 +23,12 @@ struct RenderFrame {
 	VkFence _renderDoneFence;
 	VkSemaphore _imgReadyFlag;
 	VkSemaphore _renderDoneFlag;
+};
+
+struct UploadContext {
+	VkFence _uploadDoneFence;
+	VkCommandPool _commandPool;
+	VkCommandBuffer _commandBuffer;
 };
 
 class VkApp {
@@ -95,6 +102,8 @@ private:
 
 	RenderFrame& getFrame();
 
+	void immediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function);
+
 	/* App State */
 	bool _init{false};
 	uint32_t _frameNum{ 0 };
@@ -141,17 +150,24 @@ private:
 	VkPipelineLayout _pipelineLayout;
 	VkPipeline _pipeline;
 
-	/* Resources (Buffers/Images) */
 
 	/* Frames */
 	RenderFrame _frames[NUM_FRAMES];
+
+	/* Upload */
+	UploadContext _uploadContext;
 
 	/* Commands */
 
 	/* Sync */
 
+
 	/* Buffers */
+	std::vector<vk_primitives::mesh::Vertex_F3_F3> _vertices;
+	std::vector<uint32_t> _indices;
 	vk_types::AllocatedBuffer _vertexBuffer;
+	vk_types::AllocatedBuffer _indexBuffer;
+
 	vk_types::AllocatedBuffer _cameraBuffer;
 	vk_types::AllocatedBuffer _modelBuffer;
 

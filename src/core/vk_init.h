@@ -11,6 +11,10 @@ namespace vk_init {
 	
 	VkCommandBufferAllocateInfo commandBufferAllocateInfo(VkCommandPool pool, uint32_t count = 1, VkCommandBufferLevel level = VK_COMMAND_BUFFER_LEVEL_PRIMARY);
 
+	VkCommandBufferBeginInfo commandBufferBeginInfo(VkCommandBufferUsageFlags flags);
+
+	VkSubmitInfo submitInfo(VkCommandBuffer* cmd);
+
 	/* Sync */
 
 	VkFenceCreateInfo fenceCreateInfo(VkFenceCreateFlags flags = 0);

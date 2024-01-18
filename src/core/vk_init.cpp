@@ -28,6 +28,36 @@ VkCommandBufferAllocateInfo vk_init::commandBufferAllocateInfo(VkCommandPool poo
 	return alloc_info;
 }
 
+VkCommandBufferBeginInfo vk_init::commandBufferBeginInfo(VkCommandBufferUsageFlags flags)
+{
+	VkCommandBufferBeginInfo begin_info{};
+	begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	begin_info.pNext = nullptr;
+	begin_info.flags = flags;
+	begin_info.pInheritanceInfo = nullptr;
+
+	return begin_info;
+}
+
+VkSubmitInfo vk_init::submitInfo(VkCommandBuffer* cmd)
+{
+	VkSubmitInfo submit{};
+	submit.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	submit.pNext = nullptr;
+
+
+	submit.pWaitDstStageMask = nullptr;
+	submit.waitSemaphoreCount = 0;
+	submit.pWaitSemaphores = nullptr;
+	submit.signalSemaphoreCount = 0;
+	submit.pSignalSemaphores = nullptr;
+
+	submit.commandBufferCount = 1;
+	submit.pCommandBuffers = cmd;
+
+	return submit;
+}
+
 VkFenceCreateInfo vk_init::fenceCreateInfo(VkFenceCreateFlags flags)
 {
 	VkFenceCreateInfo create_info{};

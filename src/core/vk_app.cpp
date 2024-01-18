@@ -7,6 +7,7 @@
 
 #include "primitives/mesh.h"
 #include "primitives/camera.h"
+#include "primitives/shapes.h"
 
 
 #define VMA_IMPLEMENTATION
@@ -100,11 +101,7 @@ void VkApp::draw()
 	//Reset command buffer
 	VK_CHECK(vkResetCommandBuffer(cmd, 0));
 
-	VkCommandBufferBeginInfo begin_info{};
-	begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-	begin_info.pNext = nullptr;
-	begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-	begin_info.pInheritanceInfo = nullptr;
+	VkCommandBufferBeginInfo begin_info = vk_init::commandBufferBeginInfo(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
 
 	VK_CHECK(vkBeginCommandBuffer(cmd, &begin_info));
 
@@ -134,8 +131,12 @@ void VkApp::draw()
 
 	vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _pipeline);
 
+	//Bind vertex buffer
 	VkDeviceSize offset = 0;
 	vkCmdBindVertexBuffers(cmd, 0, 1, &_vertexBuffer._buffer, &offset);
+
+	//Bind index buffer
+	vkCmdBindIndexBuffer(cmd, _indexBuffer._buffer, offset, VK_INDEX_TYPE_UINT32);
 
 	//View/proj
 	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _pipelineLayout, 0, 1, &_frameDescriptorSet, 1, &offsetSize);
@@ -143,7 +144,8 @@ void VkApp::draw()
 	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _pipelineLayout, 1, 1, &_objectDescriptorSet, 0, nullptr);
 
 	for (uint32_t i = 0; i < NUM_OBJECTS; i++) {
-		vkCmdDraw(cmd, 3, 1, 0, i);
+		//vkCmdDraw(cmd, 3, 1, 0, i);
+		vkCmdDrawIndexed(cmd, static_cast<uint32_t>(_indices.size()), 1, 0, 0, i);
 	}
 
 	vkCmdEndRenderPass(cmd);
@@ -336,7 +338,7 @@ void VkApp::initCommands()
 	//Enable buffer resetting
 	VkCommandPoolCreateInfo pool_create_info = vk_init::commandPoolCreateInfo(_graphicsFamilyQueueIndex, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
 
-
+	//Frame objects
 	for (uint32_t i = 0; i < NUM_FRAMES; i++) {
 
 		VK_CHECK(vkCreateCommandPool(_device, &pool_create_info, nullptr, &_frames[i]._commandPool));
@@ -345,6 +347,11 @@ void VkApp::initCommands()
 		VkCommandBufferAllocateInfo buffer_alloc_info = vk_init::commandBufferAllocateInfo(_frames[i]._commandPool, 1, VK_COMMAND_BUFFER_LEVEL_PRIMARY);
 		VK_CHECK(vkAllocateCommandBuffers(_device, &buffer_alloc_info, &_frames[i]._commandBuffer));
 	}
+
+	//Upload context objects
+	VK_CHECK(vkCreateCommandPool(_device, &pool_create_info, nullptr, &_uploadContext._commandPool));
+	VkCommandBufferAllocateInfo buffer_alloc_info = vk_init::commandBufferAllocateInfo(_uploadContext._commandPool, 1, VK_COMMAND_BUFFER_LEVEL_PRIMARY);
+	VK_CHECK(vkAllocateCommandBuffers(_device, &buffer_alloc_info, &_uploadContext._commandBuffer));
 }
 
 
@@ -467,6 +474,7 @@ void VkApp::initSync()
 
 	VkSemaphoreCreateInfo semaphore_create_info = vk_init::semaphoreCreateInfo();
 
+	//Frame sync objects
 	for (uint32_t i = 0; i < NUM_FRAMES; i++) {
 
 		VK_CHECK(vkCreateFence(_device, &fence_create_info, nullptr, &_frames[i]._renderDoneFence));
@@ -474,6 +482,11 @@ void VkApp::initSync()
 		VK_CHECK(vkCreateSemaphore(_device, &semaphore_create_info, nullptr, &_frames[i]._imgReadyFlag));
 		VK_CHECK(vkCreateSemaphore(_device, &semaphore_create_info, nullptr, &_frames[i]._renderDoneFlag));
 	}
+
+	//Upload sync objects
+	//Don't start fence in signaled state
+	fence_create_info.flags = 0;
+	VK_CHECK(vkCreateFence(_device, &fence_create_info, nullptr, &_uploadContext._uploadDoneFence));
 }
 
 void VkApp::initPipelines()
@@ -574,23 +587,75 @@ void VkApp::initBuffers()
 {
 
 	/* Vertex buffers */
-	std::vector<vk_primitives::mesh::Vertex_F3_F3> vertices{
-		{ {1.0f,1.0f,0.0}, {1.0f,0.0f,0.0f} },
-		{ {-1.0f,1.0f,0.0}, {0.0f,1.0f,0.0f} },
-		{ {0.0f,-1.0f,0.0}, {0.0f,0.0f,1.0f} }
-	};
+	/*_vertices = std::vector<vk_primitives::mesh::Vertex_F3_F3>{
+		{ {1.0f,1.0f,0.0}, {0.0f,0.0f,0.0f} },
+		{ {-1.0f,1.0f,0.0}, {1.0f,1.0f,1.0f} },
+		{ {-1.0f,-1.0f,0.0}, {1.0f,0.0f,0.0f} },
+		{ {1.0f,-1.0f,0.0}, {0.0f,1.0f,0.0f} },
+	};*/
 
-	//Create vertex buffer
-	_vertexBuffer = vk_util::createBuffer(_allocator, vertices.size() * sizeof(vk_primitives::mesh::Vertex_F3_F3), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
-	
-	//Copy data into buffer
+	_vertices = vk_primitives::shapes::Cube::getVertexData();
 
+
+
+	size_t vertex_buffer_size = _vertices.size() * sizeof(vk_primitives::mesh::Vertex_F3_F3);
+	//Create CPU side staging buffer
+	auto vertexStagingBuffer = vk_util::createBuffer(_allocator, vertex_buffer_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
+	//Create GPU side vertex buffer
+	_vertexBuffer = vk_util::createBuffer(_allocator, vertex_buffer_size, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
+
+	//Copy data into CPU side staging buffer
 	void* data;
-	vmaMapMemory(_allocator, _vertexBuffer._allocation, &data);
+	vmaMapMemory(_allocator, vertexStagingBuffer._allocation, &data);
 
-	memcpy(data, vertices.data(), vertices.size() * sizeof(vk_primitives::mesh::Vertex_F3_F3));
+	memcpy(data, _vertices.data(), vertex_buffer_size);
 
-	vmaUnmapMemory(_allocator, _vertexBuffer._allocation);
+	vmaUnmapMemory(_allocator, vertexStagingBuffer._allocation);
+
+	//Transfer data from CPU staging buffer to GPU side buffer
+	immediateSubmit([=](VkCommandBuffer cmd) {
+		VkBufferCopy copy;
+		copy.srcOffset = 0;
+		copy.dstOffset = 0;
+		copy.size = vertex_buffer_size;
+		vkCmdCopyBuffer(cmd, vertexStagingBuffer._buffer, _vertexBuffer._buffer, 1, &copy);
+	});
+	
+	//Cleanup temporary staging buffer
+	vmaDestroyBuffer(_allocator, vertexStagingBuffer._buffer, vertexStagingBuffer._allocation);
+	
+	/* Index buffers */
+	/*_indices = std::vector<uint32_t>{
+		0, 2, 3,
+		0, 1, 2
+	};*/
+
+	_indices = vk_primitives::shapes::Cube::getIndexData();
+
+	size_t index_buffer_size = _indices.size() * sizeof(uint32_t);
+	//Create CPU side staging buffer
+	auto indexStagingBuffer = vk_util::createBuffer(_allocator, index_buffer_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
+	//Create GPU side index buffer
+	_indexBuffer = vk_util::createBuffer(_allocator,index_buffer_size, VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
+
+	//Copy data into CPU side staging buffer
+	vmaMapMemory(_allocator, indexStagingBuffer._allocation, &data);
+
+	memcpy(data, _indices.data(), index_buffer_size);
+
+	vmaUnmapMemory(_allocator, indexStagingBuffer._allocation);
+
+	//Transfer data from CPU staging buffer to GPU side buffer
+	immediateSubmit([=](VkCommandBuffer cmd) {
+		VkBufferCopy copy;
+		copy.srcOffset = 0;
+		copy.dstOffset = 0;
+		copy.size = index_buffer_size;
+		vkCmdCopyBuffer(cmd, indexStagingBuffer._buffer, _indexBuffer._buffer, 1, &copy);
+		});
+
+	//Cleanup temporary staging buffer
+	vmaDestroyBuffer(_allocator, indexStagingBuffer._buffer,indexStagingBuffer._allocation);
 
 	/* Uniform buffers */
 
@@ -768,6 +833,8 @@ void VkApp::destroyCommands()
 	for (uint32_t i = 0; i < NUM_FRAMES; i++) {
 		vkDestroyCommandPool(_device, _frames[i]._commandPool, nullptr);
 	}
+
+	vkDestroyCommandPool(_device, _uploadContext._commandPool, nullptr);
 }
 
 void VkApp::destroyRenderPasses()
@@ -791,6 +858,8 @@ void VkApp::destroySync()
 		vkDestroySemaphore(_device, _frames[i]._renderDoneFlag, nullptr);
 
 	}
+
+	vkDestroyFence(_device, _uploadContext._uploadDoneFence, nullptr);
 }
 
 void VkApp::destroyPipelines()
@@ -802,6 +871,7 @@ void VkApp::destroyPipelines()
 void VkApp::destroyBuffers()
 {
 	vmaDestroyBuffer(_allocator, _vertexBuffer._buffer, _vertexBuffer._allocation);
+	vmaDestroyBuffer(_allocator, _indexBuffer._buffer, _indexBuffer._allocation);
 	vmaDestroyBuffer(_allocator, _cameraBuffer._buffer, _cameraBuffer._allocation);
 	vmaDestroyBuffer(_allocator, _modelBuffer._buffer, _modelBuffer._allocation);
 }
@@ -816,6 +886,34 @@ void VkApp::destroyDescriptors()
 RenderFrame& VkApp::getFrame()
 {
 	return _frames[_frameNum % NUM_FRAMES];
+}
+
+void VkApp::immediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function)
+{
+	VkCommandBuffer cmd = _uploadContext._commandBuffer;
+
+	//Begin recording a new commmand to send
+	VkCommandBufferBeginInfo begin_info = vk_init::commandBufferBeginInfo(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+
+	VK_CHECK(vkBeginCommandBuffer(cmd,&begin_info));
+
+	//execute the function
+	function(cmd);
+
+	VK_CHECK(vkEndCommandBuffer(cmd));
+
+	VkSubmitInfo submit = vk_init::submitInfo(&cmd);
+
+
+	//Submit the command
+	VK_CHECK(vkQueueSubmit(_graphicsQueue, 1, &submit, _uploadContext._uploadDoneFence));
+
+	//Have cpu wait for command to finish before proceeding
+	vkWaitForFences(_device, 1, &_uploadContext._uploadDoneFence, true, 9999999999);
+	vkResetFences(_device, 1, &_uploadContext._uploadDoneFence);
+
+	// reset the command buffers inside the command pool
+	vkResetCommandPool(_device, _uploadContext._commandPool, 0);
 }
 
 void _cursorMotionCallback(GLFWwindow* window, double xpos, double ypos)
