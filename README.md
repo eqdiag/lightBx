@@ -39,6 +39,7 @@ make
 - [x] Storage buffer for model matrices of objects
 - [x] Depth buffer
 
+
 # Thursday
 - [x] Static buffer loading (via staging buffer)
 - [x] Index buffer (squares)
@@ -47,6 +48,7 @@ make
 - [ ] Imgui
 - [ ] Colors
 - [ ] Basic lighting
+- [ ] Fix mac bug (framebuffer issue vs window size)
 
 # Friday
 - [ ] Materials
