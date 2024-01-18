@@ -76,6 +76,7 @@ private:
 
 	void initPipelines();
 
+	void initImgui();
 
 	/* DESTROY */
 
@@ -98,6 +99,8 @@ private:
 	void destroyDescriptors();
 
 	void destroyPipelines();
+
+	void destroyImgui();
 
 	/* Helpers */
 
@@ -174,6 +177,7 @@ private:
 
 	/* Desciptors */
 	VkDescriptorPool _descriptorPool;
+	VkDescriptorPool _imguiDescriptorPool;
 
 	//Dynamic descriptor set changed on frame scope
 	VkDescriptorSetLayout _frameDescriptorLayout;

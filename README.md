@@ -20,6 +20,8 @@ All other dependencies are self-contained in this project using git's submodule 
 ```
 git clone https://github.com/eqdiag/lightBx
 cd lightBx
+git submodule update --init
+
 mkdir build
 cd build
 cmake ..
@@ -45,10 +47,11 @@ make
 - [x] Index buffer (squares)
 - [x] Index buffer (cubes)
 
-- [ ] Imgui
+- [x] Imgui
+- [x] Fix mac bug (framebuffer issue vs window size)
 - [ ] Colors
 - [ ] Basic lighting
-- [x] Fix mac bug (framebuffer issue vs window size)
+- [ ] 
 
 # Friday
 - [ ] Materials

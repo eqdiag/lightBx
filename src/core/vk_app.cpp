@@ -9,6 +9,9 @@
 #include "primitives/camera.h"
 #include "primitives/shapes.h"
 
+#include "imgui.h"
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_vulkan.h"
 
 #define VMA_IMPLEMENTATION
 #include "vk_mem_alloc.h"
@@ -35,6 +38,7 @@ void VkApp::init()
 
 	initPipelines();
 
+	initImgui();
 
 	_init = true;
 
@@ -46,7 +50,8 @@ void VkApp::run()
 
 		glfwPollEvents();
 
-		draw();
+		//TODO: imgui glfw callbacks?
+	
 
 		if (glfwGetKey(_window, GLFW_KEY_A) == GLFW_PRESS) {
 			_mainCamera.translate(-TRANSLATE_SPEED, 0.0, 0.0);
@@ -59,6 +64,16 @@ void VkApp::run()
 		}
 
 
+		ImGui_ImplVulkan_NewFrame();
+		ImGui_ImplGlfw_NewFrame();
+
+		ImGui::NewFrame();
+
+
+		//imgui commands
+		ImGui::ShowDemoWindow();
+
+		draw();
 
 	}
 }
@@ -102,6 +117,8 @@ void VkApp::draw()
 	VK_CHECK(vkResetCommandBuffer(cmd, 0));
 
 	VkCommandBufferBeginInfo begin_info = vk_init::commandBufferBeginInfo(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+
+	ImGui::Render();
 
 	VK_CHECK(vkBeginCommandBuffer(cmd, &begin_info));
 
@@ -147,6 +164,8 @@ void VkApp::draw()
 		//vkCmdDraw(cmd, 3, 1, 0, i);
 		vkCmdDrawIndexed(cmd, static_cast<uint32_t>(_indices.size()), 1, 0, 0, i);
 	}
+
+	ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmd);
 
 	vkCmdEndRenderPass(cmd);
 
@@ -196,6 +215,8 @@ void VkApp::cleanup()
 		for (uint32_t i = 0; i < NUM_FRAMES; i++) {
 			VK_CHECK(vkWaitForFences(_device, 1,&_frames[i]._renderDoneFence, true, 1000000000));
 		}
+
+		destroyImgui();
 
 		destroyPipelines();
 
@@ -306,8 +327,13 @@ void VkApp::initSwapchain()
 {
 	vkb::SwapchainBuilder swapchain_builder{_gpu, _device, _surface};
 
+	VkSurfaceFormatKHR surface_format{};
+	surface_format.format = VK_FORMAT_R8G8B8A8_UNORM;
+	surface_format.colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
+
 	vkb::Swapchain swapchain = swapchain_builder
 		.use_default_format_selection()
+		.set_desired_format(surface_format)
 		.set_desired_present_mode(VK_PRESENT_MODE_FIFO_KHR)
 		.set_desired_extent(_windowSize.width,_windowSize.height)
 		.build()
@@ -589,6 +615,63 @@ void VkApp::initPipelines()
 	vkDestroyShaderModule(_device, fragShader, nullptr);
 }
 
+void VkApp::initImgui()
+{
+	//Create descriptor pool for imgui resources
+	VkDescriptorPoolSize pool_sizes[] =
+	{
+		/*{VK_DESCRIPTOR_TYPE_SAMPLER, 1000},
+		{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000 },
+		{ VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000 },
+		{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000 },
+		{ VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1000 },
+		{ VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1000 },
+		{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1000 },
+		{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1000 },
+		{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000 },
+		{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000 },
+		{ VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000 }*/
+		{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1 }
+	};
+
+	VkDescriptorPoolCreateInfo pool_info{};
+	pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+	pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+	pool_info.maxSets = 1;
+	pool_info.poolSizeCount = std::size(pool_sizes);
+	pool_info.pPoolSizes = pool_sizes;
+
+	VK_CHECK(vkCreateDescriptorPool(_device, &pool_info, nullptr, &_imguiDescriptorPool));
+
+	//Basic imgui setup	
+	ImGui::CreateContext();
+
+	//Vulkan specific setup
+	//Install callbacks?	
+	ImGui_ImplGlfw_InitForVulkan(_window, true);
+
+	//this initializes imgui for Vulkan
+	ImGui_ImplVulkan_InitInfo init_info{};
+	init_info.Instance = _instance;
+	init_info.PhysicalDevice = _gpu;
+	init_info.Device = _device;
+	init_info.Queue = _graphicsQueue;
+	init_info.DescriptorPool = _imguiDescriptorPool;
+	init_info.MinImageCount = NUM_FRAMES;
+	init_info.ImageCount = NUM_FRAMES;
+	init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
+
+	ImGui_ImplVulkan_Init(&init_info, _renderPass);	
+
+	//Upload imgui fonts to gpu
+	immediateSubmit([&](VkCommandBuffer cmd) {
+		ImGui_ImplVulkan_CreateFontsTexture();
+	});
+
+	//Destroy cpu side font data
+	ImGui_ImplVulkan_DestroyFontsTexture();
+}
+
 void VkApp::initBuffers()
 {
 
@@ -744,7 +827,7 @@ void VkApp::initDescriptors()
 	pool_info.pPoolSizes = sizes.data();
 
 	VK_CHECK(vkCreateDescriptorPool(_device, &pool_info, nullptr, &_descriptorPool));
-
+	
 
 	//Allocate descriptors from pool
 
@@ -872,6 +955,12 @@ void VkApp::destroyPipelines()
 {
 	vkDestroyPipelineLayout(_device, _pipelineLayout, nullptr);
 	vkDestroyPipeline(_device, _pipeline, nullptr);
+}
+
+void VkApp::destroyImgui()
+{
+	ImGui_ImplVulkan_Shutdown();
+	vkDestroyDescriptorPool(_device, _imguiDescriptorPool, nullptr);
 }
 
 void VkApp::destroyBuffers()

@@ -45,6 +45,12 @@ else()
     message("${Vulkan_LIBRARIES}")
 endif()
 
+file(
+    GLOB imgui_src 
+    "external/imgui/*.cpp" 
+    "external/imgui/backends/imgui_impl_glfw.cpp"
+    "external/imgui/backends/imgui_impl_vulkan.cpp"
+)
 
 file(GLOB src
     "src/core/*.cpp"
@@ -52,8 +58,8 @@ file(GLOB src
     "src/primitives/*.cpp"
     "external/tiny_obj_loader/tiny_obj_loader.cpp"
     "external/stb_img/stb_image.cpp"
-)
 
+)
 
 #Set asset paths
 set(ASSET_DIR 
@@ -89,6 +95,7 @@ add_executable (
     ${PROJECT_NAME}
     "src/main.cpp" 
     ${src}
+    ${imgui_src}
 )
 
 add_subdirectory(external/glfw)
@@ -111,6 +118,8 @@ target_include_directories(
     PUBLIC external/tiny_obj_loader
     PUBLIC external/vma/include
     PUBLIC external/stb_img
+    PUBLIC external/imgui
+    PUBLIC external/imgui/backends
     PUBLIC src/math
     PUBLIC src
     PUBLIC ${Vulkan_INCLUDE_DIRS}
