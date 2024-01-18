@@ -48,7 +48,7 @@ make
 - [ ] Imgui
 - [ ] Colors
 - [ ] Basic lighting
-- [ ] Fix mac bug (framebuffer issue vs window size)
+- [x] Fix mac bug (framebuffer issue vs window size)
 
 # Friday
 - [ ] Materials

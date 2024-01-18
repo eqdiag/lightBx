@@ -49,13 +49,13 @@ void VkApp::run()
 		draw();
 
 		if (glfwGetKey(_window, GLFW_KEY_A) == GLFW_PRESS) {
-			_mainCamera.translate(-0.01, 0.0, 0.0);
+			_mainCamera.translate(-TRANSLATE_SPEED, 0.0, 0.0);
 		}else if (glfwGetKey(_window, GLFW_KEY_D) == GLFW_PRESS) {
-			_mainCamera.translate(0.01, 0.0, 0.0);
+			_mainCamera.translate(TRANSLATE_SPEED, 0.0, 0.0);
 		}else if (glfwGetKey(_window, GLFW_KEY_W) == GLFW_PRESS) {
-			_mainCamera.translate(0.0, 0.0, -0.01);
+			_mainCamera.translate(0.0, 0.0, -TRANSLATE_SPEED);
 		}else if (glfwGetKey(_window, GLFW_KEY_S) == GLFW_PRESS) {
-			_mainCamera.translate(0.0, 0.0, 0.01);
+			_mainCamera.translate(0.0, 0.0, TRANSLATE_SPEED);
 		}
 
 
@@ -234,6 +234,12 @@ void VkApp::initWindow()
 	glfwSetMouseButtonCallback(_window, _mouseButtonCallback);
 
 	glfwSetWindowUserPointer(_window, (void*)this);
+
+	int width,height;
+	glfwGetFramebufferSize(_window,&width,&height);
+
+	_windowSize.width = width;
+	_windowSize.height = height;
 }
 
 void VkApp::initVulkan()

@@ -46,6 +46,7 @@ public:
 	bool _mousePressed{ false };
 	double _mouseX{};
 	double _mouseY{};
+	static constexpr float TRANSLATE_SPEED = 0.25;
 
 	/* Camera */
 	vk_primitives::camera::FlyCamera _mainCamera{math::Vec3{0, 0, -4}};
