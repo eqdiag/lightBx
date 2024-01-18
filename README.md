@@ -51,7 +51,6 @@ make
 - [x] Fix mac bug (framebuffer issue vs window size)
 - [ ] Colors
 - [ ] Basic lighting
-- [ ] 
 
 # Friday
 - [ ] Materials

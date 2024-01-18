@@ -70,8 +70,7 @@ void VkApp::run()
 		ImGui::NewFrame();
 
 
-		//imgui commands
-		ImGui::ShowDemoWindow();
+		drawUI();
 
 		draw();
 
@@ -961,6 +960,12 @@ void VkApp::destroyImgui()
 {
 	ImGui_ImplVulkan_Shutdown();
 	vkDestroyDescriptorPool(_device, _imguiDescriptorPool, nullptr);
+}
+
+void VkApp::drawUI()
+{
+	//Draw all imgui stuff here
+	ImGui::ShowDemoWindow();
 }
 
 void VkApp::destroyBuffers()

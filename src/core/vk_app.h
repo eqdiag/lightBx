@@ -102,6 +102,9 @@ private:
 
 	void destroyImgui();
 
+	/* UI drawing */
+	void drawUI();
+
 	/* Helpers */
 
 	RenderFrame& getFrame();
