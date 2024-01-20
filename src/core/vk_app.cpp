@@ -93,11 +93,11 @@ void VkApp::draw()
 	math::Mat4 view = _mainCamera.getViewMatrix();
 	math::Mat4 proj = math::Mat4::perspectiveProjection(70.0 * (3.14 / 180.0), (float)_windowSize.width / (float)_windowSize.height, 0.1f, 200.0f);
 	proj[1][1] *= -1;
-	vk_primitives::camera::GPUCameraData gpu_data{};
-	gpu_data.matrix = proj * view;
+	GPUCameraData gpu_data{};
+	gpu_data.view_proj = proj * view;
 
 	//Copy to gpu
-	uint32_t offsetSize = vk_util::padUniformBufferSize(_gpuProperties.limits.minUniformBufferOffsetAlignment, sizeof(vk_primitives::camera::GPUCameraData));
+	uint32_t offsetSize = vk_util::padBufferSize(_gpuProperties.limits.minUniformBufferOffsetAlignment, sizeof(GPUCameraData));
 	char* data;
 	vmaMapMemory(_allocator, _cameraBuffer._allocation, (void**)&data);
 
@@ -145,7 +145,9 @@ void VkApp::draw()
 
 	vkCmdBeginRenderPass(cmd, &pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
 
-	vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _pipeline);
+	/* Draw lights */
+
+	vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _lightPipeline);
 
 	//Bind vertex buffer
 	VkDeviceSize offset = 0;
@@ -155,20 +157,47 @@ void VkApp::draw()
 	vkCmdBindIndexBuffer(cmd, _indexBuffer._buffer, offset, VK_INDEX_TYPE_UINT32);
 
 	//View/proj
-	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _pipelineLayout, 0, 1, &_frameDescriptorSet, 1, &offsetSize);
-	//Model
-	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _pipelineLayout, 1, 1, &_objectDescriptorSet, 0, nullptr);
+	uint32_t dynamicOffset = offsetSize * frameIdx;
+	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _lightPipelineLayout, 0, 1, &_lightDescriptorSet, 1, &dynamicOffset);
+	
+	//Instanced draw
+	vkCmdDrawIndexed(cmd, static_cast<uint32_t>(_indices.size()), NUM_LIGHTS, 0, 0, 0);
 
-	for (uint32_t i = 0; i < NUM_OBJECTS; i++) {
-		//vkCmdDraw(cmd, 3, 1, 0, i);
-		vkCmdDrawIndexed(cmd, static_cast<uint32_t>(_indices.size()), 1, 0, 0, i);
-	}
+	/* Draw Objects */
 
+	vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _objectPipeline);
+
+	//Bind vertex buffer
+	//VkDeviceSize offset = 0;
+	offset = 0;
+	vkCmdBindVertexBuffers(cmd, 0, 1, &_vertexBuffer._buffer, &offset);
+
+	//Bind index buffer
+	vkCmdBindIndexBuffer(cmd, _indexBuffer._buffer, offset, VK_INDEX_TYPE_UINT32);
+
+	//View/proj
+	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _objectPipelineLayout, 0, 1, &_objectDescriptorSet, 1, &dynamicOffset);
+
+	//Instanced draw
+	vkCmdDrawIndexed(cmd, static_cast<uint32_t>(_indices.size()), NUM_OBJECTS, 0, 0, 0);
+
+	//Imgui draw commands
 	ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmd);
-
+	
 	vkCmdEndRenderPass(cmd);
 
+
 	VK_CHECK(vkEndCommandBuffer(cmd));
+
+	ImGuiIO& io = ImGui::GetIO(); (void)io;
+
+	/*
+	TODO: Get multi-viewport workingg
+	if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+	{
+		ImGui::UpdatePlatformWindows();
+		ImGui::RenderPlatformWindowsDefault();
+	}*/
 
 	//Submit recorded buffer to graphics queue
 	VkSubmitInfo submit{};
@@ -327,8 +356,8 @@ void VkApp::initSwapchain()
 	vkb::SwapchainBuilder swapchain_builder{_gpu, _device, _surface};
 
 	VkSurfaceFormatKHR surface_format{};
-	surface_format.format = VK_FORMAT_R8G8B8A8_UNORM;
-	surface_format.colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
+	surface_format.format = VK_FORMAT_B8G8R8A8_UNORM;
+	surface_format.colorSpace = VK_COLORSPACE_SRGB_NONLINEAR_KHR;
 
 	vkb::Swapchain swapchain = swapchain_builder
 		.use_default_format_selection()
@@ -522,11 +551,13 @@ void VkApp::initSync()
 
 void VkApp::initPipelines()
 {
+
+	/* Light Pipeline Creation */
 	VkShaderModule vertexShader{};
 	VkShaderModule fragShader{};
 
-	std::string vertexShaderPath = SHADER_DIR + std::string{"mesh.vert.spv"};
-	std::string fragShaderPath = SHADER_DIR + std::string{"mesh.frag.spv"};
+	std::string vertexShaderPath = SHADER_DIR + std::string{"light.vert.spv"};
+	std::string fragShaderPath = SHADER_DIR + std::string{"light.frag.spv"};
 
 
 	if (!vk_io::loadShaderModule(_device, vertexShaderPath.c_str(), &vertexShader)) {
@@ -558,12 +589,10 @@ void VkApp::initPipelines()
 
 	VkPipelineLayoutCreateInfo pipeline_layout_info = vk_init::pipelineLayoutCreateInfo();
 
-	VkDescriptorSetLayout layouts[] = { _frameDescriptorLayout,_objectDescriptorLayout };
+	pipeline_layout_info.setLayoutCount = 1;
+	pipeline_layout_info.pSetLayouts = &_lightDescriptorSetLayout;
 
-	pipeline_layout_info.setLayoutCount = 2;
-	pipeline_layout_info.pSetLayouts = layouts;
-
-	VK_CHECK(vkCreatePipelineLayout(_device, &pipeline_layout_info, nullptr, &_pipelineLayout));
+	VK_CHECK(vkCreatePipelineLayout(_device, &pipeline_layout_info, nullptr, &_lightPipelineLayout));
 
 	/* Vertex input */
 
@@ -605,10 +634,58 @@ void VkApp::initPipelines()
 	pipeline_builder._depthStencil = vk_init::pipelineDepthStencilStateCreateInfo(true, true, VK_COMPARE_OP_LESS_OR_EQUAL);
 
 
-	pipeline_builder._layout = _pipelineLayout;
+	pipeline_builder._layout = _lightPipelineLayout;
 
-	_pipeline = pipeline_builder.build(_device, _renderPass);
+	_lightPipeline = pipeline_builder.build(_device, _renderPass);
 
+
+	vkDestroyShaderModule(_device, vertexShader, nullptr);
+	vkDestroyShaderModule(_device, fragShader, nullptr);
+
+	/* Object pipeline creation */
+
+	vertexShaderPath = SHADER_DIR + std::string{"mesh.vert.spv"};
+	fragShaderPath = SHADER_DIR + std::string{"mesh.frag.spv"};
+
+
+	if (!vk_io::loadShaderModule(_device, vertexShaderPath.c_str(), &vertexShader)) {
+		std::cerr << "Couldn't load vertex shader: " << vertexShaderPath << std::endl;
+	}
+	else {
+		std::cout << "Loaded vertex shader: " << vertexShaderPath << std::endl;
+	}
+
+	if (!vk_io::loadShaderModule(_device, fragShaderPath.c_str(), &fragShader)) {
+		std::cerr << "Couldn't load fragment shader: " << fragShaderPath << std::endl;
+	}
+	else {
+		std::cout << "Loaded fragment shader: " << fragShaderPath << std::endl;
+	}
+
+	//Replace shaders
+	pipeline_builder._shaderStages.clear();
+
+	pipeline_builder._shaderStages.emplace_back(
+		vk_init::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_VERTEX_BIT, vertexShader)
+	);
+
+	pipeline_builder._shaderStages.emplace_back(
+		vk_init::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT, fragShader)
+	);
+
+
+	//Replace pipeline layout
+	pipeline_layout_info = vk_init::pipelineLayoutCreateInfo();
+
+
+	pipeline_layout_info.setLayoutCount = 1;
+	pipeline_layout_info.pSetLayouts = &_objectDescriptorLayout;
+
+	VK_CHECK(vkCreatePipelineLayout(_device, &pipeline_layout_info, nullptr, &_objectPipelineLayout));
+
+	pipeline_builder._layout = _objectPipelineLayout;
+
+	_objectPipeline = pipeline_builder.build(_device, _renderPass);
 
 	vkDestroyShaderModule(_device, vertexShader, nullptr);
 	vkDestroyShaderModule(_device, fragShader, nullptr);
@@ -644,6 +721,22 @@ void VkApp::initImgui()
 
 	//Basic imgui setup	
 	ImGui::CreateContext();
+	ImGuiIO& io = ImGui::GetIO(); (void)io;
+	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
+	io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;         // Enable Docking
+	//TODO: Multi-viewport rendering
+	//io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;       // Enable Multi-Viewport / Platform Windows
+
+
+	//ImGui::StyleColorsDark();
+
+	ImGuiStyle& style = ImGui::GetStyle();
+	if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+	{
+		style.WindowRounding = 0.0f;
+		style.Colors[ImGuiCol_WindowBg].w = 1.0f;
+	}
 
 	//Vulkan specific setup
 	//Install callbacks?	
@@ -654,11 +747,15 @@ void VkApp::initImgui()
 	init_info.Instance = _instance;
 	init_info.PhysicalDevice = _gpu;
 	init_info.Device = _device;
+	init_info.QueueFamily = _graphicsFamilyQueueIndex;
 	init_info.Queue = _graphicsQueue;
+	init_info.PipelineCache = VK_NULL_HANDLE;
 	init_info.DescriptorPool = _imguiDescriptorPool;
+	init_info.Subpass = 0;
 	init_info.MinImageCount = NUM_FRAMES;
 	init_info.ImageCount = NUM_FRAMES;
 	init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
+	init_info.Allocator = nullptr;
 
 	ImGui_ImplVulkan_Init(&init_info, _renderPass);	
 
@@ -748,73 +845,86 @@ void VkApp::initBuffers()
 	/* Uniform buffers */
 
 	//Viewproj matrix per frame
-	size_t camera_buffer_size = vk_util::padUniformBufferSize(_gpuProperties.limits.minUniformBufferOffsetAlignment, sizeof(vk_primitives::camera::GPUCameraData));
+	size_t camera_buffer_size = vk_util::padBufferSize(_gpuProperties.limits.minUniformBufferOffsetAlignment, sizeof(GPUCameraData));
 	camera_buffer_size *= NUM_FRAMES;
 
 	_cameraBuffer = vk_util::createBuffer(_allocator, camera_buffer_size, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
 
+	size_t material_buffer_size = vk_util::padBufferSize(_gpuProperties.limits.minUniformBufferOffsetAlignment, sizeof(MaterialEntity));
+
+	//TODO: Make per frame
+	_materialBuffer = vk_util::createBuffer(_allocator, material_buffer_size, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+
 	/* Storage buffers */
 
+	
+	size_t light_buffer_size = vk_util::padBufferSize(_gpuProperties.limits.minStorageBufferOffsetAlignment, sizeof(LightEntity));
+	light_buffer_size *= NUM_LIGHTS;
 
-	size_t model_buffer_size = sizeof(vk_primitives::camera::GPUCameraData);
-	model_buffer_size *= NUM_OBJECTS;
-
-	_modelBuffer = vk_util::createBuffer(_allocator, model_buffer_size, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+	_lightBuffer = vk_util::createBuffer(_allocator, light_buffer_size, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
 
 	//Fill buffer with data
-	vmaMapMemory(_allocator, _modelBuffer._allocation, &data);
+	vmaMapMemory(_allocator, _lightBuffer._allocation, &data);
 
-	vk_primitives::camera::GPUCameraData* cam_data = (vk_primitives::camera::GPUCameraData*)data;
-	for (uint32_t i = 0; i < NUM_OBJECTS; i++) {
-		cam_data[i].matrix = math::Mat4::fromTranslation(2.0 * i, 0, -10.0 + 2*i);
-		//cam_data[i].matrix = math::Mat4::identity();
+	LightEntity* light = (LightEntity*)data;
+	for (uint32_t i = 0; i < NUM_LIGHTS; i++) {
+		light[i].position = math::Vec4{ 4.0f * i, 0, -10.0f + 2 * i ,0.0 };
+		float r = (static_cast<float>(i) + 1) / NUM_LIGHTS;
+		light[i].ambient = math::Vec4{r,0,0,0};
 	}
 
-	vmaUnmapMemory(_allocator, _modelBuffer._allocation);
+	vmaUnmapMemory(_allocator, _lightBuffer._allocation);
+
+	size_t object_buffer_size  = vk_util::padBufferSize(_gpuProperties.limits.minStorageBufferOffsetAlignment, sizeof(RenderEntity));
+	object_buffer_size *= NUM_OBJECTS;
+	_objectBuffer = vk_util::createBuffer(_allocator, object_buffer_size, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+
+	vmaMapMemory(_allocator, _objectBuffer._allocation, &data);
+
+	RenderEntity* renderable = (RenderEntity*)data;
+	for (uint32_t i = 0; i < NUM_OBJECTS; i++) {
+		renderable[i].model = math::Mat4::fromTranslation(4.0 * i, 0.0, 0.0);
+	}
+
+	vmaUnmapMemory(_allocator, _objectBuffer._allocation);
 }
 
 void VkApp::initDescriptors()
 {
-	/* Set 0 */
 
-	//Binding 0
-	VkDescriptorSetLayoutBinding camera_binding{};
-	camera_binding.binding = 0;
-	camera_binding.descriptorCount = 1;
-	camera_binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-	camera_binding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+	/* Set 0 (light set) */
+	VkDescriptorSetLayoutBinding light_bindings[] = 
+	{ 
+		//Binding 0 (View-proj per frame matrix)
+		vk_init::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_VERTEX_BIT, 0),
+		//Binding 1 (Light instance storage buffer)
+		vk_init::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, 1)
+	};
 
-	//Layout
-	VkDescriptorSetLayoutCreateInfo layout_info{};
-	layout_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-	layout_info.pNext = nullptr;
-	
-	layout_info.bindingCount = 1;
-	layout_info.flags = 0;
-	layout_info.pBindings = &camera_binding;
+	VkDescriptorSetLayoutCreateInfo set0_layout_info = vk_init::descriptorSetLayoutCreateInfo(2, light_bindings);
+	VK_CHECK(vkCreateDescriptorSetLayout(_device, &set0_layout_info, nullptr, &_lightDescriptorSetLayout));
 
-	VK_CHECK(vkCreateDescriptorSetLayout(_device, &layout_info, nullptr, &_frameDescriptorLayout));
 
-	/* Set 1*/
+	/* Set 1 (mesh set) */
+	VkDescriptorSetLayoutBinding mesh_bindings[] =
+	{
+		//Binding 0 (View-proj per frame matrix)
+		vk_init::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_VERTEX_BIT, 0),
+		//Binding 1 (Light instance storage buffer)
+		vk_init::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, 1),
+		//Binding 2 (Object transforms)
+		vk_init::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, 2),
+		//Binding 3 (Material uniform)
+		vk_init::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, 3)
+	};
 
-	//Binding 0
-	VkDescriptorSetLayoutBinding model_binding{};
-	model_binding.binding = 0;
-	model_binding.descriptorCount = 1;
-	model_binding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-
-	model_binding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-
-	//Layout
-	layout_info.pBindings = &model_binding;
-
-	VK_CHECK(vkCreateDescriptorSetLayout(_device, &layout_info, nullptr, &_objectDescriptorLayout));
-
+	VkDescriptorSetLayoutCreateInfo set1_layout_info = vk_init::descriptorSetLayoutCreateInfo(4, mesh_bindings);
+	VK_CHECK(vkCreateDescriptorSetLayout(_device, &set1_layout_info, nullptr, &_objectDescriptorLayout));
 
 	//Create descriptor pool
-
 	std::vector<VkDescriptorPoolSize> sizes = {
 		{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,10},
+		{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,10},
 		{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,10}
 	};
 
@@ -835,10 +945,9 @@ void VkApp::initDescriptors()
 	alloc_info.pNext = nullptr;
 	alloc_info.descriptorPool = _descriptorPool;
 	alloc_info.descriptorSetCount = 1;
-	alloc_info.pSetLayouts = &_frameDescriptorLayout;
+	alloc_info.pSetLayouts = &_lightDescriptorSetLayout;
 
-
-	VK_CHECK(vkAllocateDescriptorSets(_device, &alloc_info,&_frameDescriptorSet));
+	VK_CHECK(vkAllocateDescriptorSets(_device, &alloc_info,&_lightDescriptorSet));
 
 	alloc_info.pSetLayouts = &_objectDescriptorLayout;
 
@@ -846,43 +955,45 @@ void VkApp::initDescriptors()
 
 
 	//Write to descriptor set
+	VkDeviceSize bufferSize;
 
 	//(Set 0,binding 0)
-	VkDescriptorBufferInfo buffer_info0{};
-	buffer_info0.buffer = _cameraBuffer._buffer;
-	buffer_info0.offset = 0;
-	buffer_info0.range = vk_util::padUniformBufferSize(_gpuProperties.limits.minUniformBufferOffsetAlignment, sizeof(vk_primitives::camera::GPUCameraData));
+	bufferSize = vk_util::padBufferSize(_gpuProperties.limits.minUniformBufferOffsetAlignment, sizeof(GPUCameraData));
+	VkDescriptorBufferInfo buffer_info0_0 = vk_init::descriptorBufferInfo(_cameraBuffer._buffer, 0, bufferSize);
+
+	//(Set 0,binding 1)
+	bufferSize = vk_util::padBufferSize(_gpuProperties.limits.minStorageBufferOffsetAlignment, sizeof(LightEntity))*NUM_LIGHTS;
+	VkDescriptorBufferInfo buffer_info0_1 = vk_init::descriptorBufferInfo(_lightBuffer._buffer, 0, bufferSize);
 
 	//(Set 1,binding 0)
-	VkDescriptorBufferInfo buffer_info1{};
-	buffer_info1.buffer = _modelBuffer._buffer;
-	buffer_info1.range = sizeof(vk_primitives::camera::GPUCameraData) * NUM_OBJECTS;
+	VkDescriptorBufferInfo buffer_info1_0 = buffer_info0_0;
 
-	VkWriteDescriptorSet write0{};
-	write0.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-	write0.pNext = nullptr;
+	//(Set 1,binding 1)
+	VkDescriptorBufferInfo buffer_info1_1 = buffer_info0_1;
 
-	write0.dstBinding = 0;
-	write0.dstSet = _frameDescriptorSet;
+	//(Set 1,binding 2)
+	bufferSize = vk_util::padBufferSize(_gpuProperties.limits.minStorageBufferOffsetAlignment, sizeof(RenderEntity)) * NUM_OBJECTS;
+	VkDescriptorBufferInfo buffer_info1_2 = vk_init::descriptorBufferInfo(_objectBuffer._buffer, 0, bufferSize);
 
-	write0.descriptorCount = 1;
-	write0.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-	write0.pBufferInfo = &buffer_info0;
+	//(Set 1,binding 3)
+	bufferSize = vk_util::padBufferSize(_gpuProperties.limits.minUniformBufferOffsetAlignment, sizeof(MaterialEntity));
+	std::cout << "mat size: " << bufferSize << std::endl;
+	VkDescriptorBufferInfo buffer_info1_3 = vk_init::descriptorBufferInfo(_materialBuffer._buffer, 0, bufferSize);
 
-	VkWriteDescriptorSet write1{};
-	write1.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-	write1.pNext = nullptr;
+	VkWriteDescriptorSet writes[] = 
+	{
+		//Set 0
+		vk_init::writeDescriptorSet(_lightDescriptorSet,0,VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,&buffer_info0_0),
+		vk_init::writeDescriptorSet(_lightDescriptorSet,1,VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,&buffer_info0_1),
 
-	write1.dstBinding = 0;
-	write1.dstSet = _objectDescriptorSet;
+		//Set 1
+		vk_init::writeDescriptorSet(_objectDescriptorSet,0,VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,&buffer_info1_0),
+		vk_init::writeDescriptorSet(_objectDescriptorSet,1,VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,&buffer_info1_1),
+		vk_init::writeDescriptorSet(_objectDescriptorSet,2,VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,&buffer_info1_2),
+		vk_init::writeDescriptorSet(_objectDescriptorSet,3,VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,&buffer_info1_3)
+	};
 
-	write1.descriptorCount = 1;
-	write1.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-	write1.pBufferInfo = &buffer_info1;
-
-	VkWriteDescriptorSet writes[] = { write0,write1 };
-
-	vkUpdateDescriptorSets(_device, 2, writes, 0, nullptr);
+	vkUpdateDescriptorSets(_device, 6, writes, 0, nullptr);
 }
 
 
@@ -952,8 +1063,10 @@ void VkApp::destroySync()
 
 void VkApp::destroyPipelines()
 {
-	vkDestroyPipelineLayout(_device, _pipelineLayout, nullptr);
-	vkDestroyPipeline(_device, _pipeline, nullptr);
+	vkDestroyPipelineLayout(_device, _lightPipelineLayout, nullptr);
+	vkDestroyPipelineLayout(_device, _objectPipelineLayout, nullptr);
+	vkDestroyPipeline(_device, _lightPipeline, nullptr);
+	vkDestroyPipeline(_device, _objectPipeline, nullptr);
 }
 
 void VkApp::destroyImgui()
@@ -965,7 +1078,31 @@ void VkApp::destroyImgui()
 void VkApp::drawUI()
 {
 	//Draw all imgui stuff here
-	ImGui::ShowDemoWindow();
+	//ImGui::ShowDemoWindow();
+
+	ImGuiWindowFlags window_flags = ImGuiWindowFlags_MenuBar;
+	//window_flags |= ImGuiWindowFlags_NoBackground;
+
+	if (ImGui::BeginMainMenuBar()) {
+
+
+		if (ImGui::BeginMenu("View"))
+		{
+			if (ImGui::MenuItem("Phong Model Menu")) {
+				//mViewer.mViewerOpen = !(mViewer.mViewerOpen);
+			}
+			ImGui::EndMenu();
+		}
+
+
+		ImGui::Text("TEXT\n");
+
+		ImGui::EndMainMenuBar();
+
+
+	}
+
+	//ImGui::End();
 }
 
 void VkApp::destroyBuffers()
@@ -973,13 +1110,15 @@ void VkApp::destroyBuffers()
 	vmaDestroyBuffer(_allocator, _vertexBuffer._buffer, _vertexBuffer._allocation);
 	vmaDestroyBuffer(_allocator, _indexBuffer._buffer, _indexBuffer._allocation);
 	vmaDestroyBuffer(_allocator, _cameraBuffer._buffer, _cameraBuffer._allocation);
-	vmaDestroyBuffer(_allocator, _modelBuffer._buffer, _modelBuffer._allocation);
+	vmaDestroyBuffer(_allocator, _materialBuffer._buffer, _materialBuffer._allocation);
+	vmaDestroyBuffer(_allocator, _lightBuffer._buffer, _lightBuffer._allocation);
+	vmaDestroyBuffer(_allocator, _objectBuffer._buffer, _objectBuffer._allocation);
 }
 
 void VkApp::destroyDescriptors()
 {
 	vkDestroyDescriptorPool(_device, _descriptorPool, nullptr);
-	vkDestroyDescriptorSetLayout(_device, _frameDescriptorLayout, nullptr);
+	vkDestroyDescriptorSetLayout(_device, _lightDescriptorSetLayout, nullptr);
 	vkDestroyDescriptorSetLayout(_device, _objectDescriptorLayout, nullptr);
 }
 

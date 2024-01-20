@@ -20,13 +20,13 @@ vk_types::AllocatedBuffer vk_util::createBuffer(VmaAllocator allocator, size_t s
 	return buffer;
 }
 
-size_t vk_util::padUniformBufferSize(size_t alignment, size_t originalSize)
+size_t vk_util::padBufferSize(size_t alignment, size_t originalSize)
 {
 	// Calculate required alignment based on minimum device offset alignment
-	size_t minUboAlignment = alignment;
+	size_t minAlignment = alignment;
 	size_t alignedSize = originalSize;
-	if (minUboAlignment > 0) {
-		alignedSize = (alignedSize + minUboAlignment - 1) & ~(minUboAlignment - 1);
+	if (minAlignment > 0) {
+		alignedSize = (alignedSize + minAlignment - 1) & ~(minAlignment - 1);
 	}
 	return alignedSize;
 }

@@ -208,6 +208,56 @@ VkPipelineLayoutCreateInfo vk_init::pipelineLayoutCreateInfo()
 	return create_info;
 }
 
+VkDescriptorSetLayoutBinding vk_init::descriptorSetLayoutBinding(VkDescriptorType type, VkShaderStageFlags stageFlags, uint32_t binding)
+{
+	VkDescriptorSetLayoutBinding layout_binding{};
+	layout_binding.binding = binding;
+	layout_binding.descriptorCount = 1;
+	layout_binding.descriptorType = type;
+	layout_binding.stageFlags = stageFlags;
+
+	return layout_binding;
+}
+
+VkDescriptorSetLayoutCreateInfo vk_init::descriptorSetLayoutCreateInfo(uint32_t numBindings, const VkDescriptorSetLayoutBinding* bindings)
+{
+	VkDescriptorSetLayoutCreateInfo create_info{};
+	create_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+	create_info.pNext = nullptr;
+	create_info.bindingCount = numBindings;
+	create_info.flags = 0;
+	create_info.pBindings = bindings;
+
+	return create_info;
+}
+
+VkDescriptorBufferInfo vk_init::descriptorBufferInfo(VkBuffer buffer, VkDeviceSize offset, VkDeviceSize size)
+{
+	VkDescriptorBufferInfo buffer_info{};
+	buffer_info.buffer = buffer;
+	buffer_info.offset = offset;
+	buffer_info.range = size;
+
+	return buffer_info;
+}
+
+VkWriteDescriptorSet vk_init::writeDescriptorSet(VkDescriptorSet dstSet, uint32_t dstBinding, VkDescriptorType type, VkDescriptorBufferInfo* bufferInfo)
+{
+	VkWriteDescriptorSet write{};
+
+	write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	write.pNext = nullptr;
+
+	write.dstSet = dstSet;
+	write.dstBinding = dstBinding;
+
+	write.descriptorCount = 1;
+	write.descriptorType = type;
+	write.pBufferInfo = bufferInfo;
+
+	return write;
+}
+
 VkImageCreateInfo vk_init::imageCreateInfo(VkFormat format, VkImageUsageFlags usageFlags, VkExtent3D extent)
 {
 	VkImageCreateInfo create_info{};

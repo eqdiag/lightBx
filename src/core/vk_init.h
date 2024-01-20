@@ -64,6 +64,14 @@ namespace vk_init {
 
 	/* Desciptors */
 
+	VkDescriptorSetLayoutBinding descriptorSetLayoutBinding(VkDescriptorType type, VkShaderStageFlags stageFlags, uint32_t binding);
+
+	VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo(uint32_t numBindings, const VkDescriptorSetLayoutBinding* bindings);
+
+	VkDescriptorBufferInfo descriptorBufferInfo(VkBuffer buffer, VkDeviceSize offset, VkDeviceSize size);
+
+	VkWriteDescriptorSet writeDescriptorSet(VkDescriptorSet dstSet, uint32_t dstBinding, VkDescriptorType type, VkDescriptorBufferInfo* bufferInfo);
+
 	/* Buffers */
 
 	/* Images */

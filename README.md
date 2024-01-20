@@ -46,13 +46,16 @@ make
 - [x] Static buffer loading (via staging buffer)
 - [x] Index buffer (squares)
 - [x] Index buffer (cubes)
-
 - [x] Imgui
 - [x] Fix mac bug (framebuffer issue vs window size)
-- [ ] Colors
-- [ ] Basic lighting
+
 
 # Friday
+- [x] Colors
+
+
+# Saturday
+- [ ] Basic lighting
 - [ ] Materials
 - [ ] Textures on cubes
 	- [ ] texture loading
