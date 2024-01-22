@@ -104,15 +104,33 @@ void VkApp::draw()
 	gpu_data.eye = math::Vec4{ eye.x(),eye.y(),eye.z(),0.0};
 
 	//Copy to gpu
-	uint32_t offsetSize = vk_util::padBufferSize(_gpuProperties.limits.minUniformBufferOffsetAlignment, sizeof(GPUCameraData));
+	uint32_t camOffsetSize = vk_util::padBufferSize(_gpuProperties.limits.minUniformBufferOffsetAlignment, sizeof(GPUCameraData));
 	char* data;
 	vmaMapMemory(_allocator, _cameraBuffer._allocation, (void**)&data);
 
-	data += offsetSize * frameIdx;
-	memcpy(data, (void*)&gpu_data, offsetSize);
+	data += camOffsetSize * frameIdx;
+	memcpy(data, (void*)&gpu_data, camOffsetSize);
 
 	vmaUnmapMemory(_allocator, _cameraBuffer._allocation);
 
+
+	//Update light data
+	uint32_t lightOffsetSize = vk_util::padBufferSize(_gpuProperties.limits.minStorageBufferOffsetAlignment, sizeof(LightEntity)) * NUM_LIGHTS;
+	size_t light_buffer_size = vk_util::padBufferSize(_gpuProperties.limits.minStorageBufferOffsetAlignment, sizeof(LightEntity));
+	light_buffer_size *= NUM_LIGHTS * NUM_FRAMES;
+
+
+	//Fill buffer with data
+	void* light_data;
+	vmaMapMemory(_allocator, _lightBuffer._allocation, &light_data);
+
+	LightEntity* light = (LightEntity*)light_data;
+	for (uint32_t i = 0; i < NUM_LIGHTS; i++) {
+		light[i + frameIdx * NUM_LIGHTS].position = math::Vec4{ 4.0f * i, 6.0f, 2.0f * i + 4.0f * static_cast<float>(sin(glfwGetTime())),0.0};
+		//light[0].position = math::Vec4{ 0, 6.0f + 4.0f * static_cast<float>(sin(glfwGetTime())), 0,0.0 };
+
+	}
+	vmaUnmapMemory(_allocator, _lightBuffer._allocation);
 
 
 	uint32_t nextImgIndex;
@@ -165,8 +183,10 @@ void VkApp::draw()
 	//vkCmdBindIndexBuffer(cmd, _indexBuffer._buffer, offset, VK_INDEX_TYPE_UINT32);
 
 	//View/proj
-	uint32_t dynamicOffset = offsetSize * frameIdx;
-	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _lightPipelineLayout, 0, 1, &_lightDescriptorSet, 1, &dynamicOffset);
+	//uint32_t dynamicOffset =
+
+	uint32_t dynamicOffsets[] = { camOffsetSize * frameIdx,lightOffsetSize*frameIdx };
+	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _lightPipelineLayout, 0, 1, &_lightDescriptorSet, 2, dynamicOffsets);
 	
 	//Instanced draw
 	vkCmdDraw(cmd, _vertices.size(), NUM_LIGHTS, 0, 0);
@@ -185,7 +205,7 @@ void VkApp::draw()
 	//vkCmdBindIndexBuffer(cmd, _indexBuffer._buffer, offset, VK_INDEX_TYPE_UINT32);
 
 	//View/proj
-	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _objectPipelineLayout, 0, 1, &_objectDescriptorSet, 1, &dynamicOffset);
+	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _objectPipelineLayout, 0, 1, &_objectDescriptorSet, 2, dynamicOffsets);
 
 	//Instanced draw
 	//vkCmdDrawIndexed(cmd, static_cast<uint32_t>(_indices.size()), NUM_OBJECTS, 0, 0, 0);
@@ -892,7 +912,7 @@ void VkApp::initBuffers()
 
 	
 	size_t light_buffer_size = vk_util::padBufferSize(_gpuProperties.limits.minStorageBufferOffsetAlignment, sizeof(LightEntity));
-	light_buffer_size *= NUM_LIGHTS;
+	light_buffer_size *= NUM_LIGHTS * NUM_FRAMES;
 
 	_lightBuffer = vk_util::createBuffer(_allocator, light_buffer_size, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
 
@@ -901,14 +921,15 @@ void VkApp::initBuffers()
 
 	LightEntity* light = (LightEntity*)data;
 	for (uint32_t i = 0; i < NUM_LIGHTS; i++) {
-		light[i].position = math::Vec4{ 4.0f * i, 6.0f, 2.0f * i,0.0 };
-		//float r = (static_cast<float>(i) + 1) / NUM_LIGHTS;
-		light[i].ambient = math::Vec4{1,1,1,0};
-		light[i].diffuse = math::Vec4{ 1,1,1,0 };
-		light[i].specular = math::Vec4{ 1,1,1,0 };
+		for (uint32_t j = 0; j < NUM_FRAMES; j++) {
+			light[i + j * NUM_LIGHTS].position = math::Vec4{ 4.0f * i, 6.0f, 2.0f * i,0.0 };
+			//float r = (static_cast<float>(i) + 1) / NUM_LIGHTS;
+			light[i + j * NUM_LIGHTS].ambient = math::Vec4{ 1,1,1,0 };
+			light[i + j * NUM_LIGHTS].diffuse = math::Vec4{ 1,1,1,0 };
+			light[i + j * NUM_LIGHTS].specular = math::Vec4{ 1,1,1,0 };
+		}
 
 	}
-
 	vmaUnmapMemory(_allocator, _lightBuffer._allocation);
 
 	size_t object_buffer_size  = vk_util::padBufferSize(_gpuProperties.limits.minStorageBufferOffsetAlignment, sizeof(RenderEntity));
@@ -918,8 +939,16 @@ void VkApp::initBuffers()
 	vmaMapMemory(_allocator, _objectBuffer._allocation, &data);
 
 	RenderEntity* renderable = (RenderEntity*)data;
+	float min_r = 10.0;
+	float max_r = 30.0;
+	float angle_speed = 16.0;
+
 	for (uint32_t i = 0; i < NUM_OBJECTS; i++) {
-		renderable[i].model = math::Mat4::fromTranslation(4.0 * i - 10.0f, 0.0, 0.0);
+		float dx = static_cast<float>(i + 1) / NUM_OBJECTS;
+		float r = (1.0 - dx) * min_r + dx * max_r;
+		float angle = dx * 2.0 * PI * angle_speed;
+
+		renderable[i].model = math::Mat4::fromTranslation(r*cos(angle),0.0, r*sin(angle));
 	}
 
 	vmaUnmapMemory(_allocator, _objectBuffer._allocation);
@@ -957,7 +986,7 @@ void VkApp::initDescriptors()
 		//Binding 0 (View-proj per frame matrix)
 		vk_init::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_VERTEX_BIT, 0),
 		//Binding 1 (Light instance storage buffer)
-		vk_init::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, 1)
+		vk_init::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, VK_SHADER_STAGE_VERTEX_BIT, 1)
 	};
 
 	VkDescriptorSetLayoutCreateInfo set0_layout_info = vk_init::descriptorSetLayoutCreateInfo(2, light_bindings);
@@ -970,7 +999,7 @@ void VkApp::initDescriptors()
 		//Binding 0 (View-proj per frame matrix)
 		vk_init::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0),
 		//Binding 1 (Light instance storage buffer)
-		vk_init::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, 1),
+		vk_init::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, VK_SHADER_STAGE_FRAGMENT_BIT, 1),
 		//Binding 2 (Object transforms)
 		vk_init::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, 2),
 		//Binding 3 (Material uniform)
@@ -1026,7 +1055,10 @@ void VkApp::initDescriptors()
 	VkDescriptorBufferInfo buffer_info0_0 = vk_init::descriptorBufferInfo(_cameraBuffer._buffer, 0, bufferSize);
 
 	//(Set 0,binding 1)
-	bufferSize = vk_util::padBufferSize(_gpuProperties.limits.minStorageBufferOffsetAlignment, sizeof(LightEntity))*NUM_LIGHTS;
+	//bufferSize = vk_util::padBufferSize(_gpuProperties.limits.minStorageBufferOffsetAlignment, sizeof(LightEntity))*NUM_LIGHTS*NUM_FRAMES;
+	bufferSize = vk_util::padBufferSize(_gpuProperties.limits.minStorageBufferOffsetAlignment, sizeof(LightEntity)) * NUM_LIGHTS;
+
+	std::cout << "sz: " << bufferSize << std::endl;
 	VkDescriptorBufferInfo buffer_info0_1 = vk_init::descriptorBufferInfo(_lightBuffer._buffer, 0, bufferSize);
 
 	//(Set 1,binding 0)
@@ -1060,11 +1092,11 @@ void VkApp::initDescriptors()
 	{
 		//Set 0
 		vk_init::writeDescriptorBuffer(_lightDescriptorSet,0,VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,&buffer_info0_0),
-		vk_init::writeDescriptorBuffer(_lightDescriptorSet,1,VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,&buffer_info0_1),
+		vk_init::writeDescriptorBuffer(_lightDescriptorSet,1,VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC,&buffer_info0_1),
 
 		//Set 1
 		vk_init::writeDescriptorBuffer(_objectDescriptorSet,0,VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,&buffer_info1_0),
-		vk_init::writeDescriptorBuffer(_objectDescriptorSet,1,VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,&buffer_info1_1),
+		vk_init::writeDescriptorBuffer(_objectDescriptorSet,1,VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC,&buffer_info1_1),
 		vk_init::writeDescriptorBuffer(_objectDescriptorSet,2,VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,&buffer_info1_2),
 		vk_init::writeDescriptorBuffer(_objectDescriptorSet,3,VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,&buffer_info1_3),
 		vk_init::writeDescriptorImage(_objectDescriptorSet,4,VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,&img_info1_4),

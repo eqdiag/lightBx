@@ -27,7 +27,7 @@ void main()
 {
 	mat4 model = objects.data[gl_InstanceIndex];
 	gl_Position = camera.view_proj  * model * vec4(position,1.0);
-	outPosition = (objects.data[gl_InstanceIndex] * vec4(position,1.0)).xyz;
+	outPosition = (model * vec4(position,1.0)).xyz;
 	outNormal = mat3(transpose(inverse(model))) * normal;
 	outTexCoords = texCoords;
 }

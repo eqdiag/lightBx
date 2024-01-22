@@ -65,15 +65,15 @@ make
 		- [x] load them
 		- [x] draw them
 - [x] Lighting maps
-- [ ] Per frame lighting params (also updateable)
+- [x] Per frame lighting params (also updateable)
 - [ ] Per frame object params (also updateable)
-- [ ] Imgui interface 
-	- [ ] Lighting param controls
-	- [ ] Object param controls
 
 
 
 # Tuesday
+- [ ] Imgui interface 
+	- [ ] Lighting param controls
+	- [ ] Object param controls
 - [ ] Light casters
 - [ ] Multiple lights
 

@@ -47,13 +47,13 @@ void main()
 
 
 	//Params
-	float ambient_factor = 0.1;
+	float ambient_factor = 0.3;
 	float diffuse_factor = max(0,dot(inNormal,dx));
 	float specular_factor = pow(max(dot(light_bounce_dir,eye_dir),0),64) * material.shiny.x;
 
 
 	//Ambient term
-	//vec3 ambient = lights.data[0].ambient.xyz * material.ambient.xyz * ambient_factor;
+	vec3 ambient = lights.data[0].ambient.xyz * texture(texDiffuse,inTexCoords).xyz * ambient_factor;
 
 	//Diffuse term
 	vec3 diffuse = lights.data[0].diffuse.xyz * texture(texDiffuse,inTexCoords).xyz * diffuse_factor;
@@ -61,7 +61,7 @@ void main()
 	//Specular term
 	vec3 specular = lights.data[0].specular.xyz * texture(texSpecular,inTexCoords).xyz * specular_factor;
 
-	vec3 color = diffuse + specular;
+	vec3 color = ambient + diffuse + specular;
 
 
 	outColor = vec4(color,1.0);
