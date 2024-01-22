@@ -21,6 +21,14 @@ namespace vk_primitives {
 			static VertexInputDescription getVertexInputDescription();
 		};
 
+		struct Vertex_F3_F3_F2 {
+			math::Vec3 position;
+			math::Vec3 normal;
+			math::Vec2 texCoords;
+
+			static VertexInputDescription getVertexInputDescription();
+		};
+
 	}
 
 }

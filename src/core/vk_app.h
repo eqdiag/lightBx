@@ -1,7 +1,6 @@
 #pragma once
 
 #include "vk_types.h"
-#include "vk_io.h"
 
 #include "primitives/mesh.h"
 #include "primitives/camera.h"
@@ -12,7 +11,7 @@
 #include <functional>
 
 constexpr uint32_t NUM_FRAMES = 2;
-constexpr uint32_t NUM_LIGHTS = 4;
+constexpr uint32_t NUM_LIGHTS = 1;
 constexpr uint32_t NUM_OBJECTS = 10;
 
 /* Frame */
@@ -30,6 +29,7 @@ struct RenderFrame {
 /* Camera */
 struct GPUCameraData {
 	math::Mat4 view_proj;
+	math::Vec4 eye;
 };
 
 /* Material */
@@ -80,6 +80,11 @@ public:
 	/* Camera */
 	vk_primitives::camera::FlyCamera _mainCamera{math::Vec3{0, 0, -4}};
 
+	/* VMA Allocator */
+	VmaAllocator _allocator;
+
+	void immediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function);
+
 
 private:
 
@@ -99,7 +104,11 @@ private:
 
 	void initSync();
 
+	void initSamplers();
+
 	void initBuffers();
+
+	void initImages();
 
 	void initDescriptors();
 
@@ -123,7 +132,11 @@ private:
 
 	void destroySync();
 
+	void destroySamplers();
+
 	void destroyBuffers();
+
+	void destroyImages();
 
 	void destroyDescriptors();
 
@@ -138,7 +151,6 @@ private:
 
 	RenderFrame& getFrame();
 
-	void immediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function);
 
 	/* App State */
 	bool _init{false};
@@ -169,9 +181,6 @@ private:
 	VkPhysicalDeviceProperties _gpuProperties;
 	VkDevice _device;
 
-	/* VMA Allocator */
-	VmaAllocator _allocator;
-
 	/* Queues */
 	uint32_t _graphicsFamilyQueueIndex;
 	VkQueue _graphicsQueue;
@@ -187,10 +196,10 @@ private:
 	VkPipelineLayout _lightPipelineLayout;
 	VkPipeline _lightPipeline;
 
+	//Object pipeline
 	VkPipelineLayout _objectPipelineLayout;
 	VkPipeline _objectPipeline;
 
-	//Object pipeline
 
 
 	/* Frames */
@@ -203,10 +212,14 @@ private:
 
 	/* Sync */
 
+	/* Samplers */
+	VkSampler _blockySampler;
 
 	/* Buffers */
-	std::vector<vk_primitives::mesh::Vertex_F3_F3> _vertices;
-	std::vector<uint32_t> _indices;
+	//std::vector<vk_primitives::mesh::Vertex_F3_F3> _vertices;
+	std::vector<vk_primitives::mesh::Vertex_F3_F3_F2> _vertices;
+
+	//std::vector<uint32_t> _indices;
 
 	//Vertex buffers
 	vk_types::AllocatedBuffer _vertexBuffer;
@@ -222,6 +235,13 @@ private:
 	vk_types::AllocatedBuffer _lightBuffer;
 	vk_types::AllocatedBuffer _objectBuffer;
 
+	/* Images */
+	vk_types::AllocatedImage _diffuseImage;
+	VkImageView _diffuseImageView;
+	vk_types::AllocatedImage _specularImage;
+	VkImageView _specularImageView;
+
+
 	/* Desciptors */
 	VkDescriptorPool _descriptorPool;
 	VkDescriptorPool _imguiDescriptorPool;
@@ -235,6 +255,11 @@ private:
 
 
 };
+
+/*namespace vk_io {
+	bool loadImage(VkApp& app, const char* filePath, vk_types::AllocatedImage& image);
+}*/
+
 
 /* INPUT HANDLING */
 

@@ -11,6 +11,7 @@ namespace vk_primitives {
 		class Cube {
 		public:
 			static std::vector<mesh::Vertex_F3_F3> getVertexData();
+			static std::vector<mesh::Vertex_F3_F3_F2> getNonIndexedVertexData();
 			static std::vector<uint32_t> getIndexData();
 		};
 

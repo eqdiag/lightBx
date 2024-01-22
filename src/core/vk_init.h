@@ -70,7 +70,13 @@ namespace vk_init {
 
 	VkDescriptorBufferInfo descriptorBufferInfo(VkBuffer buffer, VkDeviceSize offset, VkDeviceSize size);
 
-	VkWriteDescriptorSet writeDescriptorSet(VkDescriptorSet dstSet, uint32_t dstBinding, VkDescriptorType type, VkDescriptorBufferInfo* bufferInfo);
+	VkWriteDescriptorSet writeDescriptorBuffer(VkDescriptorSet dstSet, uint32_t dstBinding, VkDescriptorType type, VkDescriptorBufferInfo* bufferInfo);
+
+	VkWriteDescriptorSet writeDescriptorImage(VkDescriptorSet dstSet,uint32_t dstBinding,VkDescriptorType type,VkDescriptorImageInfo* imageInfo);
+
+	/* Samplers */
+
+	VkSamplerCreateInfo samplerCreateInfo(VkFilter filters, VkSamplerAddressMode addressMode = VK_SAMPLER_ADDRESS_MODE_REPEAT);
 
 	/* Buffers */
 

@@ -2,6 +2,7 @@
 #include "vk_log.h"
 #include "vk_init.h"
 #include "vk_util.h"
+#include "vk_io.h"
 #include "settings.h"
 #include "VkBootstrap.h"
 
@@ -28,11 +29,15 @@ void VkApp::init()
 
 	initSync();
 
+	initSamplers();
+
 	initRenderPasses();
 
 	initFrameBuffers();
 
 	initBuffers();
+
+	initImages();
 
 	initDescriptors();
 
@@ -95,6 +100,8 @@ void VkApp::draw()
 	proj[1][1] *= -1;
 	GPUCameraData gpu_data{};
 	gpu_data.view_proj = proj * view;
+	auto eye = _mainCamera.getEye();
+	gpu_data.eye = math::Vec4{ eye.x(),eye.y(),eye.z(),0.0};
 
 	//Copy to gpu
 	uint32_t offsetSize = vk_util::padBufferSize(_gpuProperties.limits.minUniformBufferOffsetAlignment, sizeof(GPUCameraData));
@@ -105,6 +112,7 @@ void VkApp::draw()
 	memcpy(data, (void*)&gpu_data, offsetSize);
 
 	vmaUnmapMemory(_allocator, _cameraBuffer._allocation);
+
 
 
 	uint32_t nextImgIndex;
@@ -123,7 +131,7 @@ void VkApp::draw()
 
 	VkClearValue clearValue;
 	//float flash = abs(sin(_frameNum / 120.0f));
-	clearValue.color = { {0,0,0,1.0f} };
+	clearValue.color = { {0.2,0.2,0.2,1.0f} };
 
 	VkClearValue clearDepth;
 	clearDepth.depthStencil.depth = 1.0f;
@@ -154,14 +162,15 @@ void VkApp::draw()
 	vkCmdBindVertexBuffers(cmd, 0, 1, &_vertexBuffer._buffer, &offset);
 
 	//Bind index buffer
-	vkCmdBindIndexBuffer(cmd, _indexBuffer._buffer, offset, VK_INDEX_TYPE_UINT32);
+	//vkCmdBindIndexBuffer(cmd, _indexBuffer._buffer, offset, VK_INDEX_TYPE_UINT32);
 
 	//View/proj
 	uint32_t dynamicOffset = offsetSize * frameIdx;
 	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _lightPipelineLayout, 0, 1, &_lightDescriptorSet, 1, &dynamicOffset);
 	
 	//Instanced draw
-	vkCmdDrawIndexed(cmd, static_cast<uint32_t>(_indices.size()), NUM_LIGHTS, 0, 0, 0);
+	vkCmdDraw(cmd, _vertices.size(), NUM_LIGHTS, 0, 0);
+	//vkCmdDrawIndexed(cmd, static_cast<uint32_t>(_indices.size()), NUM_LIGHTS, 0, 0, 0);
 
 	/* Draw Objects */
 
@@ -173,13 +182,15 @@ void VkApp::draw()
 	vkCmdBindVertexBuffers(cmd, 0, 1, &_vertexBuffer._buffer, &offset);
 
 	//Bind index buffer
-	vkCmdBindIndexBuffer(cmd, _indexBuffer._buffer, offset, VK_INDEX_TYPE_UINT32);
+	//vkCmdBindIndexBuffer(cmd, _indexBuffer._buffer, offset, VK_INDEX_TYPE_UINT32);
 
 	//View/proj
 	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _objectPipelineLayout, 0, 1, &_objectDescriptorSet, 1, &dynamicOffset);
 
 	//Instanced draw
-	vkCmdDrawIndexed(cmd, static_cast<uint32_t>(_indices.size()), NUM_OBJECTS, 0, 0, 0);
+	//vkCmdDrawIndexed(cmd, static_cast<uint32_t>(_indices.size()), NUM_OBJECTS, 0, 0, 0);
+	vkCmdDraw(cmd, _vertices.size(), NUM_OBJECTS, 0, 0);
+
 
 	//Imgui draw commands
 	ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmd);
@@ -251,6 +262,10 @@ void VkApp::cleanup()
 		destroyDescriptors();
 
 		destroyBuffers();
+
+		destroyImages();
+
+		destroySamplers();
 
 		destroySync();
 
@@ -549,6 +564,13 @@ void VkApp::initSync()
 	VK_CHECK(vkCreateFence(_device, &fence_create_info, nullptr, &_uploadContext._uploadDoneFence));
 }
 
+void VkApp::initSamplers()
+{
+	VkSamplerCreateInfo info = vk_init::samplerCreateInfo(VK_FILTER_NEAREST);
+
+	VK_CHECK(vkCreateSampler(_device, &info, nullptr, &_blockySampler));
+}
+
 void VkApp::initPipelines()
 {
 
@@ -598,7 +620,7 @@ void VkApp::initPipelines()
 
 	VkPipelineVertexInputStateCreateInfo vertex_input_info = vk_init::pipelineVertexInputStateCreateInfo();
 
-	auto description = vk_primitives::mesh::Vertex_F3_F3::getVertexInputDescription();
+	auto description = vk_primitives::mesh::Vertex_F3_F3_F2::getVertexInputDescription();
 
 	vertex_input_info.vertexBindingDescriptionCount = description._bindingDescriptions.size();
 	vertex_input_info.vertexAttributeDescriptionCount = description._attributeDescriptions.size();
@@ -779,11 +801,11 @@ void VkApp::initBuffers()
 		{ {1.0f,-1.0f,0.0}, {0.0f,1.0f,0.0f} },
 	};*/
 
-	_vertices = vk_primitives::shapes::Cube::getVertexData();
+	//_vertices = vk_primitives::shapes::Cube::getVertexData();
+	_vertices = vk_primitives::shapes::Cube::getNonIndexedVertexData();
 
 
-
-	size_t vertex_buffer_size = _vertices.size() * sizeof(vk_primitives::mesh::Vertex_F3_F3);
+	size_t vertex_buffer_size = _vertices.size() * sizeof(vk_primitives::mesh::Vertex_F3_F3_F2);
 	//Create CPU side staging buffer
 	auto vertexStagingBuffer = vk_util::createBuffer(_allocator, vertex_buffer_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
 	//Create GPU side vertex buffer
@@ -815,7 +837,7 @@ void VkApp::initBuffers()
 		0, 1, 2
 	};*/
 
-	_indices = vk_primitives::shapes::Cube::getIndexData();
+	/*_indices = vk_primitives::shapes::Cube::getIndexData();
 
 	size_t index_buffer_size = _indices.size() * sizeof(uint32_t);
 	//Create CPU side staging buffer
@@ -840,7 +862,7 @@ void VkApp::initBuffers()
 		});
 
 	//Cleanup temporary staging buffer
-	vmaDestroyBuffer(_allocator, indexStagingBuffer._buffer,indexStagingBuffer._allocation);
+	vmaDestroyBuffer(_allocator, indexStagingBuffer._buffer,indexStagingBuffer._allocation);*/
 
 	/* Uniform buffers */
 
@@ -855,6 +877,17 @@ void VkApp::initBuffers()
 	//TODO: Make per frame
 	_materialBuffer = vk_util::createBuffer(_allocator, material_buffer_size, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
 
+	vmaMapMemory(_allocator, _materialBuffer._allocation, &data);
+
+	MaterialEntity* material = (MaterialEntity*)data;
+	material->ambient = math::Vec4{ 0.3,0.0,0.0,0.0 };
+	material->diffuse = math::Vec4{ 0.5,0,0.0,0 };
+	material->specular = math::Vec4{1.0,1.0,1.0,0 };
+	material->shiny = 0.5;
+
+
+	vmaUnmapMemory(_allocator, _materialBuffer._allocation);
+
 	/* Storage buffers */
 
 	
@@ -868,9 +901,12 @@ void VkApp::initBuffers()
 
 	LightEntity* light = (LightEntity*)data;
 	for (uint32_t i = 0; i < NUM_LIGHTS; i++) {
-		light[i].position = math::Vec4{ 4.0f * i, 0, -10.0f + 2 * i ,0.0 };
-		float r = (static_cast<float>(i) + 1) / NUM_LIGHTS;
-		light[i].ambient = math::Vec4{r,0,0,0};
+		light[i].position = math::Vec4{ 4.0f * i, 6.0f, 2.0f * i,0.0 };
+		//float r = (static_cast<float>(i) + 1) / NUM_LIGHTS;
+		light[i].ambient = math::Vec4{1,1,1,0};
+		light[i].diffuse = math::Vec4{ 1,1,1,0 };
+		light[i].specular = math::Vec4{ 1,1,1,0 };
+
 	}
 
 	vmaUnmapMemory(_allocator, _lightBuffer._allocation);
@@ -883,10 +919,33 @@ void VkApp::initBuffers()
 
 	RenderEntity* renderable = (RenderEntity*)data;
 	for (uint32_t i = 0; i < NUM_OBJECTS; i++) {
-		renderable[i].model = math::Mat4::fromTranslation(4.0 * i, 0.0, 0.0);
+		renderable[i].model = math::Mat4::fromTranslation(4.0 * i - 10.0f, 0.0, 0.0);
 	}
 
 	vmaUnmapMemory(_allocator, _objectBuffer._allocation);
+}
+
+void VkApp::initImages()
+{
+	std::string diffuse_img_path = IMAGE_DIR + std::string{"crate_diffuse_map.png"};
+	std::string specular_img_path = IMAGE_DIR + std::string{"crate_specular_map.png"};
+
+	if (vk_io::loadImage(*this, diffuse_img_path.c_str(), _diffuseImage)) {
+		std::cout << "Loaded image: " << diffuse_img_path << std::endl;
+	}
+
+	if (vk_io::loadImage(*this, specular_img_path.c_str(), _specularImage)) {
+		std::cout << "Loaded image: " << specular_img_path << std::endl;
+	}
+
+
+	//Create image view for diffuse and specular images
+	VkImageViewCreateInfo create_info = vk_init::imageViewCreateInfo(VK_FORMAT_R8G8B8A8_SRGB, _diffuseImage._image, VK_IMAGE_ASPECT_COLOR_BIT);
+	VK_CHECK(vkCreateImageView(_device, &create_info, nullptr, &_diffuseImageView));
+
+	create_info = vk_init::imageViewCreateInfo(VK_FORMAT_R8G8B8A8_SRGB, _specularImage._image, VK_IMAGE_ASPECT_COLOR_BIT);
+	VK_CHECK(vkCreateImageView(_device, &create_info, nullptr, &_specularImageView));
+
 }
 
 void VkApp::initDescriptors()
@@ -909,23 +968,28 @@ void VkApp::initDescriptors()
 	VkDescriptorSetLayoutBinding mesh_bindings[] =
 	{
 		//Binding 0 (View-proj per frame matrix)
-		vk_init::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_VERTEX_BIT, 0),
+		vk_init::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0),
 		//Binding 1 (Light instance storage buffer)
 		vk_init::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, 1),
 		//Binding 2 (Object transforms)
 		vk_init::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, 2),
 		//Binding 3 (Material uniform)
-		vk_init::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, 3)
+		vk_init::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, 3),
+		//Binding 4 (Diffuse Texture)
+		vk_init::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 4),
+		//Binding 5 (Specular Texture)
+		vk_init::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 5)
 	};
 
-	VkDescriptorSetLayoutCreateInfo set1_layout_info = vk_init::descriptorSetLayoutCreateInfo(4, mesh_bindings);
+	VkDescriptorSetLayoutCreateInfo set1_layout_info = vk_init::descriptorSetLayoutCreateInfo(6, mesh_bindings);
 	VK_CHECK(vkCreateDescriptorSetLayout(_device, &set1_layout_info, nullptr, &_objectDescriptorLayout));
 
 	//Create descriptor pool
 	std::vector<VkDescriptorPoolSize> sizes = {
 		{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,10},
 		{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,10},
-		{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,10}
+		{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,10},
+		{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,10}
 	};
 
 	VkDescriptorPoolCreateInfo pool_info{};
@@ -980,20 +1044,34 @@ void VkApp::initDescriptors()
 	std::cout << "mat size: " << bufferSize << std::endl;
 	VkDescriptorBufferInfo buffer_info1_3 = vk_init::descriptorBufferInfo(_materialBuffer._buffer, 0, bufferSize);
 
+	//(Set 1,binding 4)
+	VkDescriptorImageInfo img_info1_4{};
+	img_info1_4.sampler = _blockySampler;
+	img_info1_4.imageView = _diffuseImageView;
+	img_info1_4.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+	//(Set 1,binding 5)
+	VkDescriptorImageInfo img_info1_5{};
+	img_info1_5.sampler = _blockySampler;
+	img_info1_5.imageView = _specularImageView;
+	img_info1_5.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
 	VkWriteDescriptorSet writes[] = 
 	{
 		//Set 0
-		vk_init::writeDescriptorSet(_lightDescriptorSet,0,VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,&buffer_info0_0),
-		vk_init::writeDescriptorSet(_lightDescriptorSet,1,VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,&buffer_info0_1),
+		vk_init::writeDescriptorBuffer(_lightDescriptorSet,0,VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,&buffer_info0_0),
+		vk_init::writeDescriptorBuffer(_lightDescriptorSet,1,VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,&buffer_info0_1),
 
 		//Set 1
-		vk_init::writeDescriptorSet(_objectDescriptorSet,0,VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,&buffer_info1_0),
-		vk_init::writeDescriptorSet(_objectDescriptorSet,1,VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,&buffer_info1_1),
-		vk_init::writeDescriptorSet(_objectDescriptorSet,2,VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,&buffer_info1_2),
-		vk_init::writeDescriptorSet(_objectDescriptorSet,3,VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,&buffer_info1_3)
+		vk_init::writeDescriptorBuffer(_objectDescriptorSet,0,VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,&buffer_info1_0),
+		vk_init::writeDescriptorBuffer(_objectDescriptorSet,1,VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,&buffer_info1_1),
+		vk_init::writeDescriptorBuffer(_objectDescriptorSet,2,VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,&buffer_info1_2),
+		vk_init::writeDescriptorBuffer(_objectDescriptorSet,3,VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,&buffer_info1_3),
+		vk_init::writeDescriptorImage(_objectDescriptorSet,4,VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,&img_info1_4),
+		vk_init::writeDescriptorImage(_objectDescriptorSet,5,VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,&img_info1_5)
 	};
 
-	vkUpdateDescriptorSets(_device, 6, writes, 0, nullptr);
+	vkUpdateDescriptorSets(_device, 8, writes, 0, nullptr);
 }
 
 
@@ -1061,6 +1139,11 @@ void VkApp::destroySync()
 	vkDestroyFence(_device, _uploadContext._uploadDoneFence, nullptr);
 }
 
+void VkApp::destroySamplers()
+{
+	vkDestroySampler(_device, _blockySampler, nullptr);
+}
+
 void VkApp::destroyPipelines()
 {
 	vkDestroyPipelineLayout(_device, _lightPipelineLayout, nullptr);
@@ -1113,6 +1196,15 @@ void VkApp::destroyBuffers()
 	vmaDestroyBuffer(_allocator, _materialBuffer._buffer, _materialBuffer._allocation);
 	vmaDestroyBuffer(_allocator, _lightBuffer._buffer, _lightBuffer._allocation);
 	vmaDestroyBuffer(_allocator, _objectBuffer._buffer, _objectBuffer._allocation);
+}
+
+void VkApp::destroyImages()
+{
+	vkDestroyImageView(_device, _diffuseImageView, nullptr);
+	vkDestroyImageView(_device, _specularImageView, nullptr);
+
+	vmaDestroyImage(_allocator, _diffuseImage._image, _diffuseImage._allocation);
+	vmaDestroyImage(_allocator, _specularImage._image, _specularImage._allocation);
 }
 
 void VkApp::destroyDescriptors()

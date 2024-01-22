@@ -241,7 +241,7 @@ VkDescriptorBufferInfo vk_init::descriptorBufferInfo(VkBuffer buffer, VkDeviceSi
 	return buffer_info;
 }
 
-VkWriteDescriptorSet vk_init::writeDescriptorSet(VkDescriptorSet dstSet, uint32_t dstBinding, VkDescriptorType type, VkDescriptorBufferInfo* bufferInfo)
+VkWriteDescriptorSet vk_init::writeDescriptorBuffer(VkDescriptorSet dstSet, uint32_t dstBinding, VkDescriptorType type, VkDescriptorBufferInfo* bufferInfo)
 {
 	VkWriteDescriptorSet write{};
 
@@ -256,6 +256,36 @@ VkWriteDescriptorSet vk_init::writeDescriptorSet(VkDescriptorSet dstSet, uint32_
 	write.pBufferInfo = bufferInfo;
 
 	return write;
+}
+
+VkWriteDescriptorSet vk_init::writeDescriptorImage(VkDescriptorSet dstSet, uint32_t dstBinding, VkDescriptorType type, VkDescriptorImageInfo* imageInfo)
+{
+	VkWriteDescriptorSet write = {};
+	write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	write.pNext = nullptr;
+
+	write.dstBinding = dstBinding;
+	write.dstSet = dstSet;
+	write.descriptorCount = 1;
+	write.descriptorType = type;
+	write.pImageInfo = imageInfo;
+
+	return write;
+}
+
+VkSamplerCreateInfo vk_init::samplerCreateInfo(VkFilter filters, VkSamplerAddressMode addressMode)
+{
+	VkSamplerCreateInfo create_info{};
+	create_info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+	create_info.pNext = nullptr;
+
+	create_info.magFilter = filters;
+	create_info.minFilter = filters;
+	create_info.addressModeU = addressMode;
+	create_info.addressModeV = addressMode;
+	create_info.addressModeW = addressMode;
+
+	return create_info;
 }
 
 VkImageCreateInfo vk_init::imageCreateInfo(VkFormat format, VkImageUsageFlags usageFlags, VkExtent3D extent)

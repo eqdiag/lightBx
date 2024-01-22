@@ -4,6 +4,7 @@ Basic lighting system implemented in Vulkan.
 
 Roughly based on lighting section in [learnopengl](https://learnopengl.com/Lighting).
 
+## TODO: DESCRIPTION 
 
 
 ## Dependencies
@@ -13,6 +14,7 @@ Roughly based on lighting section in [learnopengl](https://learnopengl.com/Light
 - stb_image: Loading image files
 
 All other dependencies are self-contained in this project using git's submodule system.
+
 
 
 ## Installation
@@ -54,11 +56,24 @@ make
 - [x] Colors
 
 
-# Saturday
-- [ ] Basic lighting
-- [ ] Materials
-- [ ] Textures on cubes
-	- [ ] texture loading
+# Monday
+- [x] Cube (non-indexed version w normals)
+- [x] Basic lighting
+- [x] Materials
+- [x] Textures on cubes
+	- [x] texture loading
+		- [x] load them
+		- [x] draw them
+- [x] Lighting maps
+- [ ] Per frame lighting params (also updateable)
+- [ ] Per frame object params (also updateable)
+- [ ] Imgui interface 
+	- [ ] Lighting param controls
+	- [ ] Object param controls
+
+
+
+# Tuesday
 - [ ] Light casters
 - [ ] Multiple lights
 
