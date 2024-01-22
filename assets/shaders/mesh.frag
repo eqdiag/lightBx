@@ -47,7 +47,7 @@ void main()
 
 
 	//Params
-	float ambient_factor = 0.3;
+	float ambient_factor = 0.2;
 	float diffuse_factor = max(0,dot(inNormal,dx));
 	float specular_factor = pow(max(dot(light_bounce_dir,eye_dir),0),64) * material.shiny.x;
 

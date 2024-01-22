@@ -940,7 +940,7 @@ void VkApp::initBuffers()
 
 	RenderEntity* renderable = (RenderEntity*)data;
 	float min_r = 10.0;
-	float max_r = 30.0;
+	float max_r = 25.0;
 	float angle_speed = 16.0;
 
 	for (uint32_t i = 0; i < NUM_OBJECTS; i++) {
