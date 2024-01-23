@@ -14,11 +14,16 @@
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_vulkan.h"
 
+#include <cstdlib>
+#include <ctime>
+
 #define VMA_IMPLEMENTATION
 #include "vk_mem_alloc.h"
 
 void VkApp::init()
 {
+	std::srand(std::time(nullptr));
+
 	initWindow();
 
 	initVulkan();
@@ -119,6 +124,10 @@ void VkApp::draw()
 	size_t light_buffer_size = vk_util::padBufferSize(_gpuProperties.limits.minStorageBufferOffsetAlignment, sizeof(LightEntity));
 	light_buffer_size *= NUM_LIGHTS * NUM_FRAMES;
 
+	float t = static_cast<float>(glfwGetTime());
+	float min_r = 5.0;
+	float max_r = 20.0;
+	float angle_speed = 1.0;
 
 	//Fill buffer with data
 	void* light_data;
@@ -126,8 +135,23 @@ void VkApp::draw()
 
 	LightEntity* light = (LightEntity*)light_data;
 	for (uint32_t i = 0; i < NUM_LIGHTS; i++) {
-		light[i + frameIdx * NUM_LIGHTS].position = math::Vec4{ 4.0f * i, 6.0f, 2.0f * i + 4.0f * static_cast<float>(sin(glfwGetTime())),0.0};
+		//_lights[i].position = math::Vec4{ 4.0f * i, 6.0f, 2.0f * i + 4.0f * static_cast<float>(sin(glfwGetTime())),0.0 };
+		float src = (sin(t) + 1.0) * 0.5;
+		float r = (1.0 - src) * min_r + src * max_r;
+		float dx = static_cast<float>(i + 1) / NUM_LIGHTS;
+		float angle = t * angle_speed + dx*PI*2.0;
+		_lights[i].position = math::Vec4{r*cos(angle),10.0,r*sin(angle),0.0};
+
+		//light[i + frameIdx * NUM_LIGHTS].position = math::Vec4{ 4.0f * i, 6.0f, 2.0f * i + 4.0f * static_cast<float>(sin(glfwGetTime())),0.0};
 		//light[0].position = math::Vec4{ 0, 6.0f + 4.0f * static_cast<float>(sin(glfwGetTime())), 0,0.0 };
+		light[i + frameIdx * NUM_LIGHTS].position = _lights[i].position;
+		light[i + frameIdx * NUM_LIGHTS].ambient = _lights[i].ambient;
+		light[i + frameIdx * NUM_LIGHTS].diffuse = _lights[i].diffuse;
+		light[i + frameIdx * NUM_LIGHTS].specular = _lights[i].specular;
+
+		light[i + frameIdx * NUM_LIGHTS]._constantAttenuation = _lights[i]._constantAttenuation;
+		light[i + frameIdx * NUM_LIGHTS]._linearAttenuation = _lights[i]._linearAttenuation;
+		light[i + frameIdx * NUM_LIGHTS]._quadraticAttenuation = _lights[i]._quadraticAttenuation;
 
 	}
 	vmaUnmapMemory(_allocator, _lightBuffer._allocation);
@@ -149,7 +173,7 @@ void VkApp::draw()
 
 	VkClearValue clearValue;
 	//float flash = abs(sin(_frameNum / 120.0f));
-	clearValue.color = { {0.2,0.2,0.2,1.0f} };
+	clearValue.color = { {0.0,0.0,0.0,1.0f} };
 
 	VkClearValue clearDepth;
 	clearDepth.depthStencil.depth = 1.0f;
@@ -206,6 +230,10 @@ void VkApp::draw()
 
 	//View/proj
 	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _objectPipelineLayout, 0, 1, &_objectDescriptorSet, 2, dynamicOffsets);
+
+	//Set # lights
+	//int num_lights = NUM_l
+	vkCmdPushConstants(cmd, _objectPipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(int), &NUM_LIGHTS);
 
 	//Instanced draw
 	//vkCmdDrawIndexed(cmd, static_cast<uint32_t>(_indices.size()), NUM_OBJECTS, 0, 0, 0);
@@ -586,7 +614,7 @@ void VkApp::initSync()
 
 void VkApp::initSamplers()
 {
-	VkSamplerCreateInfo info = vk_init::samplerCreateInfo(VK_FILTER_NEAREST);
+	VkSamplerCreateInfo info = vk_init::samplerCreateInfo(VK_FILTER_LINEAR);
 
 	VK_CHECK(vkCreateSampler(_device, &info, nullptr, &_blockySampler));
 }
@@ -723,6 +751,16 @@ void VkApp::initPipelines()
 	pipeline_layout_info.setLayoutCount = 1;
 	pipeline_layout_info.pSetLayouts = &_objectDescriptorLayout;
 
+	//Push constants for number of lights
+	VkPushConstantRange push_constant{};
+	push_constant.offset = 0;
+	push_constant.size = sizeof(int);
+	push_constant.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+
+	pipeline_layout_info.pushConstantRangeCount = 1;
+	pipeline_layout_info.pPushConstantRanges = &push_constant;
+
 	VK_CHECK(vkCreatePipelineLayout(_device, &pipeline_layout_info, nullptr, &_objectPipelineLayout));
 
 	pipeline_builder._layout = _objectPipelineLayout;
@@ -824,6 +862,35 @@ void VkApp::initBuffers()
 	//_vertices = vk_primitives::shapes::Cube::getVertexData();
 	_vertices = vk_primitives::shapes::Cube::getNonIndexedVertexData();
 
+	_lights.resize(NUM_LIGHTS);
+	for (uint32_t i = 0; i < NUM_LIGHTS; i++) {
+		_lights[i].position = math::Vec4{ 4.0f * i, 6.0f, 2.0f * i,0.0 };
+		/*float r = static_cast<float>(std::rand()) / RAND_MAX;
+		float g = static_cast<float>(std::rand()) / RAND_MAX;
+		float b = static_cast<float>(std::rand()) / RAND_MAX;*/
+		float r = 0;
+		float g = 0;
+		float b = 0;
+
+		if (i >= 0 && i < (NUM_LIGHTS / 3)) {
+			r = 1.0;
+		}
+		else if (i >= (NUM_LIGHTS / 3) && i < 2 * (NUM_LIGHTS / 3)) {
+			g = 1.0;
+		}
+		else {
+			b = 1.0;
+		}
+
+		_lights[i].ambient = math::Vec4{ r,g,b,0 };
+		_lights[i].diffuse = math::Vec4{ r,g,b,0 };
+		_lights[i].specular = math::Vec4{ r,g,b,0 };
+		_lights[i]._constantAttenuation = 0.11;
+		_lights[i]._linearAttenuation = .011;
+		_lights[i]._quadraticAttenuation = .02;
+	}
+
+
 
 	size_t vertex_buffer_size = _vertices.size() * sizeof(vk_primitives::mesh::Vertex_F3_F3_F2);
 	//Create CPU side staging buffer
@@ -900,10 +967,10 @@ void VkApp::initBuffers()
 	vmaMapMemory(_allocator, _materialBuffer._allocation, &data);
 
 	MaterialEntity* material = (MaterialEntity*)data;
-	material->ambient = math::Vec4{ 0.3,0.0,0.0,0.0 };
+	material->ambient = math::Vec4{ 0.4,0.0,0.0,0.0 };
 	material->diffuse = math::Vec4{ 0.5,0,0.0,0 };
 	material->specular = math::Vec4{1.0,1.0,1.0,0 };
-	material->shiny = 0.5;
+	material->shiny = 0.8;
 
 
 	vmaUnmapMemory(_allocator, _materialBuffer._allocation);
@@ -922,11 +989,16 @@ void VkApp::initBuffers()
 	LightEntity* light = (LightEntity*)data;
 	for (uint32_t i = 0; i < NUM_LIGHTS; i++) {
 		for (uint32_t j = 0; j < NUM_FRAMES; j++) {
-			light[i + j * NUM_LIGHTS].position = math::Vec4{ 4.0f * i, 6.0f, 2.0f * i,0.0 };
-			//float r = (static_cast<float>(i) + 1) / NUM_LIGHTS;
-			light[i + j * NUM_LIGHTS].ambient = math::Vec4{ 1,1,1,0 };
-			light[i + j * NUM_LIGHTS].diffuse = math::Vec4{ 1,1,1,0 };
-			light[i + j * NUM_LIGHTS].specular = math::Vec4{ 1,1,1,0 };
+			light[i + j * NUM_LIGHTS].position = _lights[i].position;
+			light[i + j * NUM_LIGHTS].ambient = _lights[i].ambient;
+			light[i + j * NUM_LIGHTS].diffuse = _lights[i].diffuse;
+			light[i + j * NUM_LIGHTS].specular = _lights[i].specular;
+
+			light[i + j * NUM_LIGHTS]._constantAttenuation = _lights[i]._constantAttenuation;
+			light[i + j * NUM_LIGHTS]._linearAttenuation = _lights[i]._linearAttenuation;
+			light[i + j * NUM_LIGHTS]._quadraticAttenuation = _lights[i]._quadraticAttenuation;
+
+
 		}
 
 	}
@@ -940,15 +1012,22 @@ void VkApp::initBuffers()
 
 	RenderEntity* renderable = (RenderEntity*)data;
 	float min_r = 10.0;
-	float max_r = 25.0;
-	float angle_speed = 32.0;
+	float max_r = 40.0;
+	float height_range = 5.0;
+	float angle_speed = 64.0;
 
 	for (uint32_t i = 0; i < NUM_OBJECTS; i++) {
 		float dx = static_cast<float>(i + 1) / NUM_OBJECTS;
+		float h = static_cast<float>(std::rand()) / RAND_MAX;
 		float r = (1.0 - dx) * min_r + dx * max_r;
-		float angle = dx * 2.0 * PI * angle_speed;
+		r *= h;
 
-		renderable[i].model = math::Mat4::fromTranslation(r*cos(angle),0.0, r*sin(angle));
+		h = height_range * (2.0 * h - 1.0);
+		float angle = dx * 2.0 * PI * angle_speed;
+		
+
+
+		renderable[i].model = math::Mat4::fromTranslation(r*cos(angle),h, r * sin(angle));
 	}
 
 	vmaUnmapMemory(_allocator, _objectBuffer._allocation);
@@ -1201,19 +1280,86 @@ void VkApp::drawUI()
 	if (ImGui::BeginMainMenuBar()) {
 
 
-		if (ImGui::BeginMenu("View"))
+		if (ImGui::BeginMenu("Menus"))
 		{
-			if (ImGui::MenuItem("Phong Model Menu")) {
-				//mViewer.mViewerOpen = !(mViewer.mViewerOpen);
+			if (ImGui::MenuItem("Parameter Menu")) {
+				_viewerOpen = !_viewerOpen;
 			}
+			
 			ImGui::EndMenu();
 		}
 
+		std::string num = "# LIGHTS: " + std::to_string(NUM_LIGHTS);
+		ImGui::Text(num.c_str());
 
-		ImGui::Text("TEXT\n");
+		num = "# OBJECTS: " + std::to_string(NUM_OBJECTS);
+		ImGui::Text(num.c_str());
+
 
 		ImGui::EndMainMenuBar();
 
+	}
+
+	if (_viewerOpen) {
+
+		ImGui::Begin("Parameter Menu");
+
+		std::string light_str = "Lights [" + std::to_string(NUM_LIGHTS) + "]";
+		if (ImGui::CollapsingHeader(light_str.c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
+
+			for (uint32_t i = 0; i < NUM_LIGHTS; i++) {
+				
+				std::string light_i = "Light [" + std::to_string(i) + "]";
+				if (ImGui::CollapsingHeader(light_i.c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
+					light_i = "KILL Light [" + std::to_string(i) + "]";
+					if (ImGui::Button(light_i.c_str())) {
+						_lights[i].ambient = math::Vec4{};
+						_lights[i].diffuse = math::Vec4{};
+						_lights[i].specular = math::Vec4{};
+					}
+
+					light_i = "Light [" + std::to_string(i) + "]";
+					light_i += " (Ambient)";
+					ImGui::ColorEdit3(light_i.c_str(), _lights[i].ambient.getRawData());
+
+					light_i = "Light [" + std::to_string(i) + "]";
+					light_i += " (Diffuse)";
+					ImGui::ColorEdit3(light_i.c_str(), _lights[i].diffuse.getRawData());
+
+					light_i = "Light [" + std::to_string(i) + "]";
+					light_i += " (Specular)";
+					ImGui::ColorEdit3(light_i.c_str(), _lights[i].specular.getRawData());
+
+					light_i = "Light [" + std::to_string(i) + "]";
+					light_i += " Attenuation (Constant term) ";
+					ImGui::SliderFloat(light_i.c_str(), &_lights[i]._constantAttenuation, 0.0, 1.0);
+
+					light_i = "Light [" + std::to_string(i) + "]";
+					light_i += " Attenuation (Linear term) ";
+					ImGui::SliderFloat(light_i.c_str(), &_lights[i]._linearAttenuation, 0.0, 1.0);
+
+					light_i = "Light [" + std::to_string(i) + "]";
+					light_i += " Attenuation (Quadratic term) ";
+					ImGui::SliderFloat(light_i.c_str(), &_lights[i]._quadraticAttenuation, 0.0, 1.0);
+					//ImGui::DragFloat(light_i.c_str(), &_lights[i]._quadraticAttenuation, 0.0, 1.0);
+
+				}
+			}
+
+
+
+
+
+			//ImGui::SliderFloat("Shininess", &mViewer.mLight.mShininess, 0.0001, 10.0);
+		}
+
+		/*std::string obj_str = "Objects [" + std::to_string(NUM_OBJECTS) + "]";
+		if (ImGui::CollapsingHeader(obj_str.c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
+			//ImGui::ColorEdit3("Color", mViewer.mLight.mColor.getRawData());
+			//ImGui::SliderFloat("Shininess", &mViewer.mLight.mShininess, 0.0001, 10.0);
+		}*/
+
+		ImGui::End();
 
 	}
 

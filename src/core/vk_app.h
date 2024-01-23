@@ -11,8 +11,8 @@
 #include <functional>
 
 constexpr uint32_t NUM_FRAMES = 2;
-constexpr uint32_t NUM_LIGHTS = 1;
-constexpr uint32_t NUM_OBJECTS = 2000;
+constexpr uint32_t NUM_LIGHTS = 9;
+constexpr uint32_t NUM_OBJECTS = 3000;
 constexpr float PI = 3.14;
 
 /* Frame */
@@ -47,6 +47,10 @@ struct LightEntity{
 	math::Vec4 ambient;
 	math::Vec4 diffuse;
 	math::Vec4 specular;
+	float _constantAttenuation;
+	float _linearAttenuation;
+	float _quadraticAttenuation;
+	float _padding;
 };
 
 /* Objects */
@@ -157,6 +161,9 @@ private:
 	bool _init{false};
 	uint32_t _frameNum{ 0 };
 
+	/* UI state */
+	bool _viewerOpen{ false };
+
 	/* Window */
 	GLFWwindow* _window;
 	VkExtent2D _windowSize{ 1200,800 };
@@ -219,6 +226,7 @@ private:
 	/* Buffers */
 	//std::vector<vk_primitives::mesh::Vertex_F3_F3> _vertices;
 	std::vector<vk_primitives::mesh::Vertex_F3_F3_F2> _vertices;
+	std::vector<LightEntity> _lights;
 
 	//std::vector<uint32_t> _indices;
 

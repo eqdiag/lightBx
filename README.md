@@ -66,16 +66,18 @@ make
 		- [x] draw them
 - [x] Lighting maps
 - [x] Per frame lighting params (also updateable)
-- [ ] Per frame object params (also updateable)
 
 
 
 # Tuesday
-- [ ] Imgui interface 
-	- [ ] Lighting param controls
-	- [ ] Object param controls
-- [ ] Light casters
-- [ ] Multiple lights
+- [x] Imgui interface 
+	- [x] Lighting param controls
+	- [x] Object param controls
+- [x] Light casters
+	- [x] Point lights (with falloff)
+	- [x] Directional lights
+- [x] Multiple lights
+
 
 
 ## Keyboard Controls
