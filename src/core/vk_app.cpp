@@ -865,10 +865,10 @@ void VkApp::initBuffers()
 	_lights.resize(NUM_LIGHTS);
 	for (uint32_t i = 0; i < NUM_LIGHTS; i++) {
 		_lights[i].position = math::Vec4{ 4.0f * i, 6.0f, 2.0f * i,0.0 };
-		/*float r = static_cast<float>(std::rand()) / RAND_MAX;
+		float r = static_cast<float>(std::rand()) / RAND_MAX;
 		float g = static_cast<float>(std::rand()) / RAND_MAX;
-		float b = static_cast<float>(std::rand()) / RAND_MAX;*/
-		float r = 0;
+		float b = static_cast<float>(std::rand()) / RAND_MAX;
+		/*float r = 0;
 		float g = 0;
 		float b = 0;
 
@@ -880,7 +880,7 @@ void VkApp::initBuffers()
 		}
 		else {
 			b = 1.0;
-		}
+		}*/
 
 		_lights[i].ambient = math::Vec4{ r,g,b,0 };
 		_lights[i].diffuse = math::Vec4{ r,g,b,0 };

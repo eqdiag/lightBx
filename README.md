@@ -4,7 +4,13 @@ Basic lighting system implemented in Vulkan.
 
 Roughly based on lighting section in [learnopengl](https://learnopengl.com/Lighting).
 
-## TODO: DESCRIPTION 
+
+## Learning goals
+- [x] Implement instanced rendering 
+- [x] Distance attenuated point lights (phong shading)
+- [x] Use multiple vulkan graphics pipelines
+- [x] Practice using vulkan dynamic descriptor sets for uniform and storage buffers
+- [x] Practice using vulkan push constants 
 
 
 ## Dependencies
@@ -30,54 +36,6 @@ cmake ..
 make
 ```
 
-## TODO
-- [x] Setup
-	- [x] Flashing screen w changing color
-- [x] Hardcoded triangle
-	- [x] Pipeline abstraction
-	- [x] Shaders done
-- [x] Fly Cam
-	- [x] Uniform buffer for proj,view
-	- [x] Add camera layer on top to actually compute view matrix
-- [x] Vertex buffers 
-- [x] Storage buffer for model matrices of objects
-- [x] Depth buffer
-
-
-# Thursday
-- [x] Static buffer loading (via staging buffer)
-- [x] Index buffer (squares)
-- [x] Index buffer (cubes)
-- [x] Imgui
-- [x] Fix mac bug (framebuffer issue vs window size)
-
-
-# Friday
-- [x] Colors
-
-
-# Monday
-- [x] Cube (non-indexed version w normals)
-- [x] Basic lighting
-- [x] Materials
-- [x] Textures on cubes
-	- [x] texture loading
-		- [x] load them
-		- [x] draw them
-- [x] Lighting maps
-- [x] Per frame lighting params (also updateable)
-
-
-
-# Tuesday
-- [x] Imgui interface 
-	- [x] Lighting param controls
-	- [x] Object param controls
-- [x] Light casters
-	- [x] Point lights (with falloff)
-	- [x] Directional lights
-- [x] Multiple lights
-
 
 
 ## Keyboard Controls
@@ -90,8 +48,7 @@ make
 ## Mouse Controls
   * `Click + Drag` Rotate camera forward direction
 
-# Demo
-## Placeholder
-![Control Demo](/screenshots/control_demo.gif "Control Demo")
-
+# Demos
+![RGB Demo](/screenshots/rgb.gif "RGB")
+![Control Demo](/screenshots/control.gif "Control")
 
