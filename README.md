@@ -16,7 +16,6 @@ Roughly based on lighting section in [learnopengl](https://learnopengl.com/Light
 ## Dependencies
 - vk_bootstrap: For vulkan boiler plate (Instance, Physical Device, Device creation)
 - vma: Vulkan memory allocator
-- tiny_obj: Loading 3d model obj files
 - stb_image: Loading image files
 
 All other dependencies are self-contained in this project using git's submodule system.

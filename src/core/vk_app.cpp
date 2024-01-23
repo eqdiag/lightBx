@@ -139,7 +139,7 @@ void VkApp::draw()
 		float src = (sin(t) + 1.0) * 0.5;
 		float r = (1.0 - src) * min_r + src * max_r;
 		float dx = static_cast<float>(i + 1) / NUM_LIGHTS;
-		float angle = t * angle_speed + dx*PI*2.0;
+		float angle = t * angle_speed + dx * PI * 2.0;
 		_lights[i].position = math::Vec4{r*cos(angle),10.0,r*sin(angle),0.0};
 
 		//light[i + frameIdx * NUM_LIGHTS].position = math::Vec4{ 4.0f * i, 6.0f, 2.0f * i + 4.0f * static_cast<float>(sin(glfwGetTime())),0.0};
@@ -865,10 +865,10 @@ void VkApp::initBuffers()
 	_lights.resize(NUM_LIGHTS);
 	for (uint32_t i = 0; i < NUM_LIGHTS; i++) {
 		_lights[i].position = math::Vec4{ 4.0f * i, 6.0f, 2.0f * i,0.0 };
-		float r = static_cast<float>(std::rand()) / RAND_MAX;
+		/*float r = static_cast<float>(std::rand()) / RAND_MAX;
 		float g = static_cast<float>(std::rand()) / RAND_MAX;
-		float b = static_cast<float>(std::rand()) / RAND_MAX;
-		/*float r = 0;
+		float b = static_cast<float>(std::rand()) / RAND_MAX;*/
+		float r = 0;
 		float g = 0;
 		float b = 0;
 
@@ -880,7 +880,7 @@ void VkApp::initBuffers()
 		}
 		else {
 			b = 1.0;
-		}*/
+		}
 
 		_lights[i].ambient = math::Vec4{ r,g,b,0 };
 		_lights[i].diffuse = math::Vec4{ r,g,b,0 };

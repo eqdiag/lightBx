@@ -56,7 +56,6 @@ file(GLOB src
     "src/core/*.cpp"
     "src/math/*.cpp"
     "src/primitives/*.cpp"
-    "external/tiny_obj_loader/tiny_obj_loader.cpp"
     "external/stb_img/stb_image.cpp"
 
 )
@@ -115,7 +114,6 @@ target_include_directories(
 	${PROJECT_NAME} 
 	PUBLIC external/glfw/include
     PUBLIc external/vk-bootstrap/src
-    PUBLIC external/tiny_obj_loader
     PUBLIC external/vma/include
     PUBLIC external/stb_img
     PUBLIC external/imgui
