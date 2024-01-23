@@ -12,7 +12,7 @@
 
 constexpr uint32_t NUM_FRAMES = 2;
 constexpr uint32_t NUM_LIGHTS = 1;
-constexpr uint32_t NUM_OBJECTS = 1000;
+constexpr uint32_t NUM_OBJECTS = 2000;
 constexpr float PI = 3.14;
 
 /* Frame */
