@@ -16,6 +16,7 @@
 
 #include <cstdlib>
 #include <ctime>
+#include <cmath>
 
 #define VMA_IMPLEMENTATION
 #include "vk_mem_alloc.h"

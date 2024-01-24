@@ -11,7 +11,7 @@
 #include <functional>
 
 constexpr uint32_t NUM_FRAMES = 2;
-constexpr uint32_t NUM_LIGHTS = 3*10;
+constexpr uint32_t NUM_LIGHTS = 9;
 constexpr uint32_t NUM_OBJECTS = 3000;
 constexpr float PI = 3.14;
 
