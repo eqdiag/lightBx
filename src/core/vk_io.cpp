@@ -4,6 +4,7 @@
 
 #include <fstream>
 #include <vector>
+#include <cstring>
 
 #include "stb_image.h"
 

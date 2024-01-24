@@ -1,6 +1,7 @@
 #include "math/vec.h"
 #include <cstdlib>
 #include <cassert>
+#include <cmath>
 
 math::Vec2::Vec2(float x, float y) :
 	mX{ x }, mY{ y }
