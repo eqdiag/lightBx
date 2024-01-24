@@ -48,3 +48,6 @@ out/build
 build
 
 .vs*
+
+#Auto-generated
+src/core/settings.h
