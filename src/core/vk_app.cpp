@@ -103,8 +103,9 @@ void VkApp::draw()
 
 	//Update camera info
 	math::Mat4 view = _mainCamera.getViewMatrix();
-	math::Mat4 proj = math::Mat4::perspectiveProjection(70.0 * (3.14 / 180.0), (float)_windowSize.width / (float)_windowSize.height, 0.1f, 200.0f);
-	proj[1][1] *= -1;
+	math::Mat4 proj = math::Mat4::perspectiveProjectionVk(70.0 * (3.14 / 180.0), (float)_windowSize.width / (float)_windowSize.height, 0.1f, 200.0f);
+
+	//proj[1][1] *= -1;
 	GPUCameraData gpu_data{};
 	gpu_data.view_proj = proj * view;
 	auto eye = _mainCamera.getEye();

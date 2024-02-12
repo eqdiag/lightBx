@@ -65,7 +65,12 @@ namespace math {
 
 		//Projection matrices
 		static Mat4 orthographicProjection(float left, float right, float bottom, float top, float near, float far);
+		static Mat4 orthographicProjectionVk(float left, float right, float bottom, float top, float near, float far);
+
+
 		static Mat4 perspectiveProjection(float fovy, float aspectRatio, float near, float far);
+		static Mat4 perspectiveProjectionVk(float fovy, float aspectRatio, float near, float far);
+
 
 
 	private:

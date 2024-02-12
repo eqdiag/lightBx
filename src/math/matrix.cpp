@@ -233,6 +233,18 @@ math::Mat4 math::Mat4::orthographicProjection(float left, float right, float bot
 	return m;
 }
 
+math::Mat4 math::Mat4::orthographicProjectionVk(float left, float right, float bottom, float top, float near, float far)
+{
+	Mat4 m{};
+	m[0][0] = 2.0f / (right - left);
+	m[1][1] = -2.0f / (top - bottom);
+	m[2][2] = 1.0f / (far - near);
+	m[3][0] = -(right + left) / (right - left);
+	m[3][1] = -(top + bottom) / (top - bottom);
+	m[3][2] = -near / (far - near);
+	return m;
+}
+
 math::Mat4 math::Mat4::perspectiveProjection(float fovy, float aspectRatio, float near, float far)
 {
 	Mat4 m{};
@@ -243,6 +255,21 @@ math::Mat4 math::Mat4::perspectiveProjection(float fovy, float aspectRatio, floa
 	m[2][2] = - (far + near) / (far - near);
 	m[3][2] = - 2 * far * near / (far - near);
 	m[2][3] = - 1.0;
+	m[3][3] = 0.0;
+
+	return m;
+}
+
+math::Mat4 math::Mat4::perspectiveProjectionVk(float fovy, float aspectRatio, float near, float far)
+{
+	Mat4 m{};
+	float ty = tan(fovy * 0.5);
+	float tx = ty * aspectRatio;
+	m[0][0] = 1.0 / tx;
+	m[1][1] = -1.0 / ty;
+	m[2][2] = -far / (far - near);
+	m[3][2] = -2 * far * near / (far - near);
+	m[2][3] = -1.0;
 	m[3][3] = 0.0;
 
 	return m;
