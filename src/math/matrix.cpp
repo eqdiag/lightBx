@@ -238,7 +238,7 @@ math::Mat4 math::Mat4::orthographicProjectionVk(float left, float right, float b
 	Mat4 m{};
 	m[0][0] = 2.0f / (right - left);
 	m[1][1] = -2.0f / (top - bottom);
-	m[2][2] = 1.0f / (far - near);
+	m[2][2] = -1.0f / (far - near);
 	m[3][0] = -(right + left) / (right - left);
 	m[3][1] = -(top + bottom) / (top - bottom);
 	m[3][2] = -near / (far - near);
