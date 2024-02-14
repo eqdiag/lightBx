@@ -104,6 +104,7 @@ void VkApp::draw()
 	//Update camera info
 	math::Mat4 view = _mainCamera.getViewMatrix();
 	math::Mat4 proj = math::Mat4::perspectiveProjectionVk(70.0 * (3.14 / 180.0), (float)_windowSize.width / (float)_windowSize.height, 0.1f, 200.0f);
+	//math::Mat4 proj = math::Mat4::orthographicProjectionVk(-10, 10, 10, -10, 0.1, 100);
 
 	//proj[1][1] *= -1;
 	GPUCameraData gpu_data{};
